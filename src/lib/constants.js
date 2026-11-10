@@ -52,3 +52,32 @@ export const ALLOWED_FILE_TYPES = [
 export const ALLOWED_FILE_EXTENSIONS = '.pdf,.png,.jpg,.jpeg'
 
 export const ITEMS_PER_PAGE = 20
+
+// Per-subject initials, muted tint colors, and catalog codes (no external images)
+export const SUBJECT_METADATA = {
+  'Computer Networks': { initials: 'CN', tint: '#EEF4FF', accent: '#1E40AF', code: 'CS501' },
+  'Machine Learning': { initials: 'ML', tint: '#F5EEFF', accent: '#6B21A8', code: 'CS602' },
+  'Operating Systems': { initials: 'OS', tint: '#FEF6E8', accent: '#92400E', code: 'CS401' },
+  'Database Management Systems': { initials: 'DBMS', tint: '#EDFAF0', accent: '#166534', code: 'CS402' },
+  'Data Structures & Algorithms': { initials: 'DSA', tint: '#FFF1E8', accent: '#9A3412', code: 'CS301' },
+  'Theory of Computation': { initials: 'TOC', tint: '#FDF0F0', accent: '#991B1B', code: 'CS502' },
+  'Artificial Intelligence': { initials: 'AI', tint: '#F0FAF8', accent: '#115E59', code: 'CS601' },
+  'Software Engineering': { initials: 'SE', tint: '#F2F5F8', accent: '#334155', code: 'CS503' },
+  'Research Methodology & IPR': { initials: 'RM', tint: '#FAF0FD', accent: '#581C87', code: 'CS701' },
+  'Web Technologies & React': { initials: 'WEB', tint: '#EDFAFC', accent: '#155E75', code: 'CS603' },
+  'Cloud Computing': { initials: 'CC', tint: '#EFF7FC', accent: '#075985', code: 'CS702' },
+  'Cybersecurity & Cryptography': { initials: 'CYBER', tint: '#FFF0F3', accent: '#9F1239', code: 'CS703' },
+  'Environmental Studies': { initials: 'EVS', tint: '#F0FAF2', accent: '#14532D', code: 'HS101' },
+}
+
+export function getSubjectMeta(subject) {
+  if (!subject) return { initials: 'DOC', tint: '#F0EEED', accent: '#111111', code: 'GEN' }
+  return (
+    SUBJECT_METADATA[subject] || {
+      initials: subject.slice(0, 3).toUpperCase(),
+      tint: '#F0EEED',
+      accent: '#111111',
+      code: 'GEN',
+    }
+  )
+}

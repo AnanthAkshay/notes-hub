@@ -2,10 +2,14 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import { ToastProvider } from './context/ToastContext'
 import ErrorBoundary from './components/ErrorBoundary'
+import AnnouncementBar from './components/AnnouncementBar'
 import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 import ProtectedRoute from './components/ProtectedRoute'
 import TeacherRoute from './components/TeacherRoute'
 import Home from './pages/Home'
+import Notes from './pages/Notes'
+import NoteDetail from './pages/NoteDetail'
 import Login from './pages/Login'
 import Upload from './pages/Upload'
 import Review from './pages/Review'
@@ -17,17 +21,29 @@ function App() {
       <ToastProvider>
         <AuthProvider>
           <BrowserRouter>
-            <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+            <div className="min-h-screen bg-white flex flex-col text-[#111111]">
+              {/* Top Global Announcement Bar with Session Dismissal */}
+              <AnnouncementBar />
+
+              {/* Bold Monochrome Sticky Navbar */}
               <Navbar />
+
+              {/* Main Routed Page Content */}
               <div className="flex-1">
                 <Routes>
-                  {/* Public route */}
+                  {/* Public Landing Home */}
                   <Route path="/" element={<Home />} />
 
-                  {/* Login route (auto-redirects to Home if already authenticated) */}
+                  {/* Public Notes Category Feed with Filters & Sorting */}
+                  <Route path="/notes" element={<Notes />} />
+
+                  {/* Product/Note Detail Page */}
+                  <Route path="/notes/:id" element={<NoteDetail />} />
+
+                  {/* Login (OTP / Password) */}
                   <Route path="/login" element={<Login />} />
 
-                  {/* Protected route (requires active login) */}
+                  {/* Protected Upload Route */}
                   <Route
                     path="/upload"
                     element={
@@ -37,7 +53,7 @@ function App() {
                     }
                   />
 
-                  {/* Teacher-only route (requires role === 'teacher') */}
+                  {/* Teacher-Only Review Queue Route */}
                   <Route
                     path="/review"
                     element={
@@ -51,6 +67,9 @@ function App() {
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </div>
+
+              {/* Editorial Footer with Black CTA Banner */}
+              <Footer />
             </div>
           </BrowserRouter>
         </AuthProvider>

@@ -1,33 +1,40 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Trash2,
+  Check,
+  ExternalLink,
+  RotateCcw,
+} from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
 import NoteCard from '../components/NoteCard'
 import { formatRelativeDate } from '../lib/formatDate'
+import Button from '../components/ui/Button'
+import { Pill } from '../components/ui/Pill'
+import { NoteCardSkeleton } from '../components/ui/Skeleton'
 
 export default function Review() {
   const { user } = useAuth()
   const { showSuccess, showError } = useToast()
 
-  // Tabs: 'unverified' or 'reported'
   const [activeTab, setActiveTab] = useState('unverified')
 
-  // Unverified queue state
   const [unverifiedNotes, setUnverifiedNotes] = useState([])
   const [unverifiedVotes, setUnverifiedVotes] = useState({})
   const [loadingUnverified, setLoadingUnverified] = useState(true)
 
-  // Reported / Needs Review queue state
   const [reportedNotes, setReportedNotes] = useState([])
   const [loadingReported, setLoadingReported] = useState(true)
 
-  // Action states
-  const [deletingNote, setDeletingNote] = useState(null) // note object to delete
+  const [deletingNote, setDeletingNote] = useState(null)
   const [actionInProgress, setActionInProgress] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-  // Load both queues asynchronously when tab, user, or refresh key changes
+  // Load both queues asynchronously
   useEffect(() => {
     let isMounted = true
 
@@ -171,13 +178,11 @@ export default function Review() {
 
     setActionInProgress(true)
     try {
-      // 1. Delete from database via RPC (cascades to votes & reports)
       const { data, error } = await supabase.rpc('teacher_delete_note', {
         p_note_id: deletingNote.id,
       })
       if (error) throw error
 
-      // 2. Clean up file from Supabase storage if hosted in "notes-files"
       const fileUrl = data.file_url || deletingNote.file_url
       if (fileUrl && fileUrl.includes('/notes-files/')) {
         const parts = fileUrl.split('/notes-files/')
@@ -199,43 +204,54 @@ export default function Review() {
   }
 
   return (
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 min-h-screen">
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-xs p-6 sm:p-8 mb-6">
+      <div className="bg-white rounded-[24px] border border-black/10 p-6 sm:p-10 mb-8 shadow-xs">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <div className="flex items-center space-x-2 mb-1">
-              <span className="px-2.5 py-0.5 text-xs font-bold uppercase tracking-wider rounded bg-purple-100 text-purple-800 border border-purple-200">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-black text-white">
                 Faculty Portal
               </span>
-              <span className="text-xs text-gray-500">Teacher-Only Access</span>
+              <span className="text-xs text-black/50 font-medium">Teacher-Only Access</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900 tracking-tight">
-              Curriculum Review & Moderation Queue
+            <h1 className="font-display text-2xl sm:text-4xl text-black uppercase tracking-tight">
+              CURRICULUM REVIEW QUEUE
             </h1>
-            <p className="text-sm text-gray-600 mt-1">
-              Review unverified submissions and investigate community-flagged notes.
+            <p className="text-xs sm:text-sm text-black/60 mt-1.5 max-w-xl">
+              Inspect student submissions for syllabus accuracy, certify high quality
+              materials, and resolve community-flagged issues.
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setRefreshTrigger((k) => k + 1)}
+            disabled={actionInProgress}
+            className="self-start sm:self-auto flex items-center gap-1.5 text-xs font-bold text-black bg-[#F0EEED] hover:bg-[#E8E5E4] px-4 py-2 rounded-full border border-black/10 transition-colors cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Refresh Queue</span>
+          </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div className="flex items-center space-x-2 mt-6 pt-4 border-t border-gray-100">
+        {/* Tab Switcher Pills */}
+        <div className="mt-8 flex p-1 rounded-full bg-[#F0EEED] max-w-md border border-black/5">
           <button
             type="button"
             onClick={() => setActiveTab('unverified')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'unverified'
-                ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 text-gray-600 hover:bg-slate-200'
+                ? 'bg-black text-white shadow-xs'
+                : 'text-black/60 hover:text-black'
             }`}
           >
             <span>Unverified Notes</span>
             <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
+              className={`text-[10px] px-2 py-0.2 rounded-full ${
                 activeTab === 'unverified'
-                  ? 'bg-blue-800 text-blue-100'
-                  : 'bg-gray-200 text-gray-700'
+                  ? 'bg-white/20 text-white'
+                  : 'bg-black/10 text-black'
               }`}
             >
               {unverifiedNotes.length}
@@ -245,235 +261,208 @@ export default function Review() {
           <button
             type="button"
             onClick={() => setActiveTab('reported')}
-            className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all flex items-center space-x-2 ${
+            className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-full text-xs font-bold transition-all cursor-pointer ${
               activeTab === 'reported'
-                ? 'bg-rose-600 text-white shadow-xs'
-                : 'bg-slate-100 text-gray-600 hover:bg-slate-200'
+                ? 'bg-black text-white shadow-xs'
+                : 'text-black/60 hover:text-black'
             }`}
           >
-            <span>Reported / Needs Review</span>
-            <span
-              className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${
-                activeTab === 'reported'
-                  ? 'bg-rose-800 text-rose-100'
-                  : 'bg-rose-100 text-rose-700'
-              }`}
-            >
-              {reportedNotes.length}
-            </span>
+            <span>Needs Review</span>
+            {reportedNotes.length > 0 && (
+              <span className="bg-[#FF3333] text-white text-[10px] px-2 py-0.2 rounded-full font-bold">
+                {reportedNotes.length}
+              </span>
+            )}
           </button>
         </div>
       </div>
 
-      {/* Tab 1: Unverified Notes Queue */}
+      {/* ==================================================================== */}
+      {/* TAB 1: UNVERIFIED NOTES GRID                                         */}
+      {/* ==================================================================== */}
       {activeTab === 'unverified' && (
         <div>
           {loadingUnverified ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[1, 2, 3].map((placeholder) => (
-                <div
-                  key={placeholder}
-                  className="bg-white rounded-xl border border-gray-200 p-5 shadow-xs animate-pulse h-56"
-                >
-                  <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
-                  <div className="h-6 bg-gray-200 rounded w-3/4 mb-3"></div>
-                  <div className="h-3.5 bg-gray-100 rounded w-full mb-2"></div>
-                  <div className="h-3.5 bg-gray-100 rounded w-1/2"></div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+              <NoteCardSkeleton />
+              <NoteCardSkeleton />
+              <NoteCardSkeleton />
+              <NoteCardSkeleton />
+            </div>
+          ) : unverifiedNotes.length > 0 ? (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+              {unverifiedNotes.map((note) => (
+                <div key={note.id} className="flex flex-col">
+                  <NoteCard
+                    note={note}
+                    userVote={unverifiedVotes[note.id] || 0}
+                    onVoteChange={(newScore) => {
+                      setUnverifiedNotes((prev) =>
+                        prev.map((n) =>
+                          n.id === note.id ? { ...n, score: newScore } : n
+                        )
+                      )
+                    }}
+                  />
+                  {/* Quick Verify Action under Card */}
+                  <div className="mt-2">
+                    <Button
+                      variant="black"
+                      size="sm"
+                      onClick={() => handleToggleVerified(note.id, false)}
+                      disabled={actionInProgress || note.uploaded_by === user?.id}
+                      className="w-full text-xs font-bold"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-[#01AB31]" />
+                      <span>Verify & Rank Top</span>
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
-          ) : unverifiedNotes.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">
-                ✓
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                All Submissions Reviewed!
-              </h2>
-              <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
-                There are no pending unverified notes awaiting review.
-              </p>
-              <Link
-                to="/"
-                className="inline-block px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg transition-colors shadow-xs"
-              >
-                Browse Verified Feed
-              </Link>
-            </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {unverifiedNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  userVote={unverifiedVotes[note.id] || 0}
-                  onVerificationChange={() => setRefreshTrigger((k) => k + 1)}
-                />
-              ))}
+            <div className="bg-[#F0EEED] rounded-[24px] p-12 text-center">
+              <CheckCircle2 className="w-10 h-10 text-[#01AB31] mx-auto mb-3" />
+              <h3 className="font-display text-xl text-black uppercase">
+                Queue Clean
+              </h3>
+              <p className="text-sm text-black/60 mt-1">
+                All submitted study notes have been reviewed by faculty!
+              </p>
             </div>
           )}
         </div>
       )}
 
-      {/* Tab 2: Reported / Needs Review Queue */}
+      {/* ==================================================================== */}
+      {/* TAB 2: REPORTED / NEEDS REVIEW QUEUE                                 */}
+      {/* ==================================================================== */}
       {activeTab === 'reported' && (
         <div>
           {loadingReported ? (
             <div className="space-y-4">
-              {[1, 2].map((i) => (
-                <div
-                  key={i}
-                  className="bg-white rounded-xl border border-gray-200 p-6 shadow-xs animate-pulse h-40"
-                ></div>
-              ))}
+              <div className="h-28 bg-[#F0EEED] rounded-[20px] animate-pulse" />
+              <div className="h-28 bg-[#F0EEED] rounded-[20px] animate-pulse" />
             </div>
-          ) : reportedNotes.length === 0 ? (
-            <div className="bg-white rounded-2xl border border-gray-200 p-12 text-center shadow-xs">
-              <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">
-                ✓
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">
-                No Flagged Notes!
-              </h2>
-              <p className="text-sm text-gray-500 max-w-md mx-auto">
-                No notes have open reports or critical low scores. Community moderation is clear.
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              {reportedNotes.map((note) => (
-                <div
-                  key={note.id}
-                  className={`bg-white rounded-2xl border shadow-xs p-6 transition-all ${
-                    note.needs_review
-                      ? 'border-rose-300 ring-1 ring-rose-200'
-                      : 'border-amber-200'
-                  }`}
-                >
-                  {/* Card Header & Status Badges */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center space-x-2">
-                      <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-                        {note.subject}
-                      </span>
-                      <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-600">
-                        {note.semester}
-                      </span>
-                      {note.verified && (
-                        <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-                          ✓ Verified
-                        </span>
-                      )}
-                    </div>
+          ) : reportedNotes.length > 0 ? (
+            <div className="space-y-4">
+              {reportedNotes.map((note) => {
+                const isAutoFlagged = note.score <= -3
+                return (
+                  <div
+                    key={note.id}
+                    className="bg-white rounded-[20px] border border-black/10 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 hover:border-black/30 transition-colors shadow-2xs"
+                  >
+                    <div className="space-y-2 max-w-2xl">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Pill size="xs" variant="black">
+                          {note.subject}
+                        </Pill>
+                        <Pill size="xs" variant="default">
+                          {note.semester}
+                        </Pill>
+                        {isAutoFlagged ? (
+                          <Pill size="xs" variant="danger">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>Auto-Flagged (Negative Score: {note.score})</span>
+                          </Pill>
+                        ) : (
+                          <Pill size="xs" variant="danger">
+                            <AlertTriangle className="w-3 h-3" />
+                            <span>{note.open_reports_count} Peer Report(s)</span>
+                          </Pill>
+                        )}
+                        {note.verified && (
+                          <Pill size="xs" variant="verified">
+                            Verified
+                          </Pill>
+                        )}
+                      </div>
 
-                    {/* Needs Review Alert Badge */}
-                    <div className="flex items-center space-x-2">
-                      {note.needs_review && (
-                        <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 flex items-center space-x-1 animate-pulse">
-                          <span>⚠</span>
-                          <span>Needs Immediate Review</span>
-                        </span>
-                      )}
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700">
-                        Score: {note.score}
-                      </span>
-                    </div>
-                  </div>
+                      <Link
+                        to={`/notes/${note.id}`}
+                        className="font-display text-lg text-black uppercase hover:underline block leading-snug"
+                      >
+                        {note.title}
+                      </Link>
 
-                  {/* Title & Description */}
-                  <h2 className="text-lg font-bold text-gray-900 mb-1">
-                    {note.title}
-                  </h2>
-                  <p className="text-sm text-gray-600 mb-3">
-                    {note.description || (
-                      <span className="italic text-gray-400">No description.</span>
-                    )}
-                  </p>
-
-                  <div className="text-xs text-gray-500 mb-4 pb-3 border-b border-gray-100 flex items-center justify-between">
-                    <span>Uploaded by: <span className="font-semibold text-gray-700">{note.uploader_name || 'Student'}</span></span>
-                    <span>Uploaded {formatRelativeDate(note.created_at)}</span>
-                  </div>
-
-                  {/* Open Reports List */}
-                  {note.open_reports && note.open_reports.length > 0 && (
-                    <div className="mb-5 bg-rose-50/60 rounded-xl p-4 border border-rose-200">
-                      <p className="text-xs font-bold text-rose-900 mb-2 flex items-center space-x-1.5">
-                        <span>🚩</span>
-                        <span>Open Reports ({note.open_reports.length}):</span>
-                      </p>
-                      <ul className="space-y-2 text-xs text-gray-700">
-                        {note.open_reports.map((report) => (
-                          <li
-                            key={report.id}
-                            className="bg-white/90 p-2.5 rounded-lg border border-rose-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1"
-                          >
-                            <div>
-                              <span className="font-semibold capitalize text-rose-800">
-                                {report.reason}:
-                              </span>{' '}
-                              <span>{report.details || 'No additional details.'}</span>
-                            </div>
-                            <span className="text-[11px] text-gray-400 whitespace-nowrap">
-                              {formatRelativeDate(report.created_at)}
+                      {note.recent_report_reason && (
+                        <p className="text-xs text-[#FF3333] font-semibold">
+                          Reason: {note.recent_report_reason}
+                          {note.recent_report_details && (
+                            <span className="text-black/60 font-normal">
+                              {' '}
+                              — &ldquo;{note.recent_report_details}&rdquo;
                             </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {/* Teacher Action Controls */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                    <a
-                      href={note.file_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="px-3.5 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold text-xs rounded-lg transition-colors border border-blue-200"
-                    >
-                      Inspect File ↗
-                    </a>
-
-                    <div className="flex items-center space-x-2">
-                      {/* Dismiss Reports */}
-                      {note.open_report_count > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDismissReports(note.id)}
-                          disabled={actionInProgress}
-                          className="px-3 py-1.5 rounded-lg border border-gray-300 text-xs font-semibold text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-50"
-                        >
-                          Dismiss Reports
-                        </button>
+                          )}
+                        </p>
                       )}
 
-                      {/* Toggle Verification */}
-                      <button
-                        type="button"
+                      <div className="text-xs text-black/50">
+                        Uploaded by {note.uploader_name || 'Student'} •{' '}
+                        {formatRelativeDate(note.created_at)}
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      <a
+                        href={note.file_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-block"
+                      >
+                        <Button variant="outline" size="sm">
+                          <ExternalLink className="w-3.5 h-3.5" />
+                          <span>Inspect File</span>
+                        </Button>
+                      </a>
+
+                      <Button
+                        variant="black"
+                        size="sm"
                         onClick={() => handleToggleVerified(note.id, note.verified)}
                         disabled={actionInProgress}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors disabled:opacity-50 ${
-                          note.verified
-                            ? 'bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100'
-                        }`}
                       >
-                        {note.verified ? 'Remove Verification' : 'Verify Note'}
-                      </button>
+                        <Check className="w-3.5 h-3.5 mr-1" />
+                        <span>{note.verified ? 'Un-verify' : 'Verify'}</span>
+                      </Button>
 
-                      {/* Delete Note */}
-                      <button
-                        type="button"
+                      {note.open_reports_count > 0 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDismissReports(note.id)}
+                          disabled={actionInProgress}
+                          className="text-black/60 hover:text-black"
+                        >
+                          <span>Dismiss Reports</span>
+                        </Button>
+                      )}
+
+                      <Button
+                        variant="danger"
+                        size="sm"
                         onClick={() => setDeletingNote(note)}
                         disabled={actionInProgress}
-                        className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-semibold transition-colors disabled:opacity-50"
                       >
-                        Delete Note
-                      </button>
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete Note</span>
+                      </Button>
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
+            </div>
+          ) : (
+            <div className="bg-[#F0EEED] rounded-[24px] p-12 text-center">
+              <CheckCircle2 className="w-10 h-10 text-[#01AB31] mx-auto mb-3" />
+              <h3 className="font-display text-xl text-black uppercase">
+                Zero Pending Reports
+              </h3>
+              <p className="text-sm text-black/60 mt-1">
+                No materials have been flagged for review.
+              </p>
             </div>
           )}
         </div>
@@ -481,38 +470,40 @@ export default function Review() {
 
       {/* Delete Confirmation Modal */}
       {deletingNote && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 max-w-md w-full p-6 text-left">
-            <div className="w-12 h-12 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-xl font-bold mb-3">
-              ⚠
-            </div>
-            <h2 className="text-lg font-bold text-gray-900 mb-1">
-              Delete Note Permanently?
-            </h2>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Are you sure you want to permanently delete{' '}
-              <span className="font-semibold text-gray-800">
-                &ldquo;{deletingNote.title}&rdquo;
-              </span>
-              ? This removes the note, its attached storage file, votes, and reports. This action cannot be undone.
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => !actionInProgress && setDeletingNote(null)}
+          />
+
+          <div className="relative bg-white rounded-[24px] max-w-md w-full p-6 sm:p-8 z-10 border border-black/10 shadow-2xl text-left">
+            <h3 className="font-display text-xl text-[#FF3333] uppercase">
+              Delete Study Note
+            </h3>
+            <p className="text-xs text-black/60 mt-2 leading-relaxed">
+              Are you sure you want to permanently delete &ldquo;
+              <strong>{deletingNote.title}</strong>&rdquo;? This will remove the
+              file from storage and all student votes. This action cannot be
+              undone.
             </p>
-            <div className="flex items-center justify-end space-x-2 pt-2 border-t border-gray-100">
-              <button
-                type="button"
+
+            <div className="mt-6 flex items-center justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => setDeletingNote(null)}
                 disabled={actionInProgress}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100"
               >
                 Cancel
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                variant="danger"
+                size="sm"
                 onClick={handleConfirmDelete}
                 disabled={actionInProgress}
-                className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50"
               >
-                {actionInProgress ? 'Deleting...' : 'Yes, Delete Note'}
-              </button>
+                {actionInProgress ? 'Deleting...' : 'Delete Permanently'}
+              </Button>
             </div>
           </div>
         </div>

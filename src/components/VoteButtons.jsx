@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 
@@ -9,6 +10,7 @@ export default function VoteButtons({
   initialUserVote = 0,
   uploadedBy,
   onVoteChange,
+  size = 'md',
 }) {
   const { user } = useAuth()
 
@@ -29,7 +31,12 @@ export default function VoteButtons({
   const isOwner = Boolean(user && user.id === uploadedBy)
   const isLoggedOut = !user
 
-  const handleVote = async (direction) => {
+  const handleVote = async (e, direction) => {
+    if (e) {
+      e.preventDefault()
+      e.stopPropagation()
+    }
+
     // 1. Guard: Logged-out users
     if (isLoggedOut) {
       setShowLoginPrompt(true)
@@ -108,101 +115,91 @@ export default function VoteButtons({
     }
   }
 
+  const isSmall = size === 'sm'
+
   return (
-    <div className="relative inline-flex items-center">
-      {/* Compact Voting Capsule */}
+    <div
+      className="relative inline-flex items-center"
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Pill Voting Capsule */}
       <div
-        className={`inline-flex items-center rounded-lg border bg-white shadow-2xs text-xs overflow-hidden ${
-          isOwner ? 'border-gray-200 opacity-60 cursor-not-allowed' : 'border-gray-200'
+        className={`inline-flex items-center rounded-full bg-[#F0EEED] border border-black/10 select-none transition-all ${
+          isSmall ? 'px-1.5 py-0.5 gap-1' : 'px-2.5 py-1 gap-1.5'
+        } ${
+          isOwner
+            ? 'opacity-60 cursor-not-allowed'
+            : 'hover:border-black/20'
         }`}
         title={isOwner ? "You can't vote on your own note" : undefined}
       >
         {/* Upvote Button */}
         <button
           type="button"
-          onClick={() => handleVote(1)}
+          onClick={(e) => handleVote(e, 1)}
           disabled={isVoting || isOwner}
           aria-label="Upvote note"
-          className={`px-2 py-1.5 transition-colors flex items-center justify-center font-bold ${
+          className={`rounded-full transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed ${
+            isSmall ? 'p-1' : 'p-1.5'
+          } ${
             currentUserVote === 1
-              ? 'bg-emerald-50 text-emerald-700'
-              : 'text-gray-400 hover:text-emerald-600 hover:bg-emerald-50/50'
-          } ${isOwner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              ? 'bg-black text-white'
+              : 'text-black/60 hover:text-black hover:bg-black/5'
+          }`}
         >
-          <svg
-            className="w-3.5 h-3.5 fill-current"
-            viewBox="0 0 20 20"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 3.293l6.707 6.707-1.414 1.414L11 7.121V17H9V7.121L4.707 11.414 3.293 10 10 3.293z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <ArrowUp className={isSmall ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
         </button>
 
-        {/* Dynamic Net Score */}
+        {/* Dynamic Score Display */}
         <span
-          className={`px-2 py-1 font-semibold tabular-nums min-w-[28px] text-center select-none ${
-            currentUserVote === 1
-              ? 'text-emerald-700 font-bold'
-              : currentUserVote === -1
-              ? 'text-rose-700 font-bold'
-              : currentScore > 0
-              ? 'text-emerald-600'
+          className={`font-semibold tabular-nums tracking-tight ${
+            isSmall ? 'text-xs min-w-[16px]' : 'text-sm min-w-[20px]'
+          } text-center ${
+            currentScore > 0
+              ? 'text-black font-bold'
               : currentScore < 0
-              ? 'text-rose-600'
-              : 'text-gray-700'
+                ? 'text-[#FF3333] font-bold'
+                : 'text-black/60'
           }`}
-          title={`Net score: ${currentScore}`}
         >
-          {currentScore > 0 ? `+${currentScore}` : currentScore}
+          {currentScore}
         </span>
 
         {/* Downvote Button */}
         <button
           type="button"
-          onClick={() => handleVote(-1)}
+          onClick={(e) => handleVote(e, -1)}
           disabled={isVoting || isOwner}
           aria-label="Downvote note"
-          className={`px-2 py-1.5 transition-colors flex items-center justify-center font-bold ${
+          className={`rounded-full transition-colors flex items-center justify-center cursor-pointer disabled:cursor-not-allowed ${
+            isSmall ? 'p-1' : 'p-1.5'
+          } ${
             currentUserVote === -1
-              ? 'bg-rose-50 text-rose-700'
-              : 'text-gray-400 hover:text-rose-600 hover:bg-rose-50/50'
-          } ${isOwner ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+              ? 'bg-[#FF3333] text-white'
+              : 'text-black/60 hover:text-[#FF3333] hover:bg-black/5'
+          }`}
         >
-          <svg
-            className="w-3.5 h-3.5 fill-current"
-            viewBox="0 0 20 20"
-            xmlns="http://www.w3.org/2000/svg"
-          >
-            <path
-              fillRule="evenodd"
-              d="M10 16.707L3.293 10l1.414-1.414L9 12.879V3h2v9.879l4.293-4.293L16.707 10 10 16.707z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <ArrowDown className={isSmall ? 'w-3 h-3' : 'w-3.5 h-3.5'} />
         </button>
       </div>
 
-      {/* Login Prompt Popover (when logged-out user attempts to vote) */}
+      {/* Login Prompt Tooltip for logged-out clicks */}
       {showLoginPrompt && (
-        <div className="absolute left-0 bottom-full mb-1.5 z-20 w-44 p-2 bg-slate-900 text-white text-[11px] rounded-lg shadow-lg text-center animate-fade-in">
-          <span>Please </span>
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-black text-white text-xs px-3 py-1.5 rounded-full shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex items-center gap-1.5">
+          <span>Sign in to vote</span>
           <Link
             to="/login"
-            className="text-blue-300 font-semibold underline hover:text-blue-200"
+            className="underline font-bold text-[#FFC633]"
+            onClick={(e) => e.stopPropagation()}
           >
-            log in to vote
+            Log In
           </Link>
-          <span> on notes.</span>
         </div>
       )}
 
       {/* Error Message Tooltip */}
       {errorMessage && (
-        <div className="absolute left-0 bottom-full mb-1.5 z-20 whitespace-nowrap px-2.5 py-1 bg-rose-900 text-rose-100 text-[11px] rounded shadow-md animate-fade-in">
+        <div className="absolute top-full left-0 mt-2 z-50 bg-[#FF3333] text-white text-[11px] px-3 py-1 rounded-full shadow-lg whitespace-nowrap animate-in fade-in duration-100 font-medium">
           {errorMessage}
         </div>
       )}

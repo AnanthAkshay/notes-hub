@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Flag, X, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
 import { useAuth } from '../hooks/useAuth'
 import { useToast } from '../hooks/useToast'
+import Button from './ui/Button'
 
-export default function ReportButton({ noteId, noteTitle, uploadedBy }) {
+export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm' }) {
   const { user } = useAuth()
   const { showSuccess, showError, showInfo } = useToast()
 
@@ -41,7 +43,6 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy }) {
       })
 
       if (error) {
-        // Unique constraint violation (23505): User already reported this note
         if (error.code === '23505' || error.message?.includes('duplicate key')) {
           showInfo('You have already submitted a report for this note. Faculty will review it.')
           setIsOpen(false)
@@ -63,137 +64,122 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy }) {
   }
 
   return (
-    <div className="relative inline-flex items-center">
-      {/* Report Flag Button */}
-      <button
-        type="button"
+    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+      <Button
+        variant="ghost"
+        size={size}
         onClick={handleOpen}
-        aria-label="Report note"
         title="Report issue with this note"
-        className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+        className="text-black/60 hover:text-black hover:bg-[#F0EEED]"
       >
-        <svg
-          className="w-3.5 h-3.5 fill-current"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
-          <path
-            fillRule="evenodd"
-            d="M3 6a3 3 0 013-3h10a1 1 0 01.8 1.6L14.25 8l2.55 3.4A1 1 0 0116 13H6a1 1 0 00-1 1v3a1 1 0 11-2 0V6z"
-            clipRule="evenodd"
-          />
-        </svg>
-      </button>
+        <Flag className="w-3.5 h-3.5" />
+        <span>Report</span>
+      </Button>
 
-      {/* Login Prompt Popover */}
+      {/* Login Prompt Tooltip */}
       {showLoginPrompt && (
-        <div className="absolute right-0 bottom-full mb-1.5 z-30 w-44 p-2 bg-slate-900 text-white text-[11px] rounded-lg shadow-lg text-center animate-fade-in">
-          <span>Please </span>
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-black text-white text-xs px-3 py-1.5 rounded-full shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex items-center gap-1.5">
+          <span>Sign in to report</span>
           <Link
             to="/login"
-            className="text-blue-300 font-semibold underline hover:text-blue-200"
+            className="underline font-bold text-[#FFC633]"
+            onClick={(e) => e.stopPropagation()}
           >
-            log in to report
+            Log In
           </Link>
-          <span> notes.</span>
         </div>
       )}
 
-      {/* Report Modal */}
+      {/* Modal Backdrop and Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-2xs animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-200 max-w-md w-full p-6 text-left">
-            <div className="flex items-center justify-between pb-3 border-b border-gray-100 mb-4">
-              <div className="flex items-center space-x-2">
-                <span className="p-1.5 rounded-md bg-rose-50 text-rose-600 text-sm font-bold">
-                  🚩
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            onClick={() => !submitting && setIsOpen(false)}
+          />
+
+          <div
+            className="relative bg-white rounded-[24px] shadow-2xl max-w-md w-full p-6 sm:p-8 z-10 animate-in fade-in zoom-in-95 duration-150 border border-black/10 text-left"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between pb-4 border-b border-black/10">
+              <div className="flex items-center gap-2">
+                <span className="p-2 rounded-full bg-[#FF3333]/10 text-[#FF3333]">
+                  <AlertTriangle className="w-4 h-4" />
                 </span>
-                <h2 className="text-base font-bold text-gray-900">
-                  Report Study Material
-                </h2>
+                <h3 className="font-display text-lg text-black uppercase tracking-tight">
+                  Report Note
+                </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
-                className="text-gray-400 hover:text-gray-600 text-sm font-bold p-1"
-                aria-label="Close report modal"
+                disabled={submitting}
+                className="p-1.5 rounded-full text-black/50 hover:text-black hover:bg-[#F0EEED] transition-colors"
               >
-                ✕
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-gray-500 mb-4 line-clamp-1">
-              Note: <span className="font-semibold text-gray-700">{noteTitle}</span>
+            <p className="text-xs text-black/60 mt-3 line-clamp-1 font-medium">
+              Note: &ldquo;{noteTitle}&rdquo;
             </p>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Reason */}
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label
-                  htmlFor="reportReason"
-                  className="block text-xs font-semibold text-gray-700 mb-1"
-                >
-                  Primary Reason <span className="text-rose-500">*</span>
+                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
+                  Reason for report
                 </label>
                 <select
-                  id="reportReason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs text-gray-900 bg-white focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  className="w-full bg-[#F0EEED] text-black text-xs font-semibold rounded-full px-4 py-2.5 border border-black/10 focus:outline-none focus:border-black cursor-pointer"
                 >
-                  <option value="incorrect">Inaccurate or incorrect content</option>
-                  <option value="incomplete">Incomplete notes / missing modules</option>
-                  <option value="duplicate">Duplicate upload</option>
-                  <option value="inappropriate">Inappropriate / off-topic content</option>
-                  <option value="other">Other issue</option>
+                  <option value="incorrect">Incorrect Information / Calculation Errors</option>
+                  <option value="incomplete">Incomplete Notes / Missing Pages</option>
+                  <option value="duplicate">Duplicate of an Existing Note</option>
+                  <option value="inappropriate">Inappropriate or Plagiarized Content</option>
+                  <option value="other">Other Issue</option>
                 </select>
               </div>
 
-              {/* Additional Details */}
               <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label
-                    htmlFor="reportDetails"
-                    className="block text-xs font-semibold text-gray-700"
-                  >
-                    Additional Details <span className="text-gray-400 font-normal">(Optional)</span>
-                  </label>
-                  <span className="text-[10px] text-gray-400">
-                    {details.length} / 300
-                  </span>
-                </div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
+                  Additional Details <span className="font-normal text-black/40 lowercase">(optional, max 300)</span>
+                </label>
                 <textarea
-                  id="reportDetails"
-                  rows={3}
-                  maxLength={300}
                   value={details}
                   onChange={(e) => setDetails(e.target.value)}
-                  placeholder="Specify incorrect formulas, unit numbers, or missing chapters..."
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 text-xs text-gray-900 focus:outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  maxLength={300}
+                  rows={3}
+                  placeholder="Specify page numbers or explain the inaccuracy..."
+                  className="w-full bg-[#F0EEED] text-black text-xs rounded-2xl p-3.5 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white resize-none transition-all"
                 />
+                <div className="text-[10px] text-black/40 text-right mt-1">
+                  {details.length}/300
+                </div>
               </div>
 
-              {/* Action Buttons */}
-              <div className="flex items-center justify-end space-x-2 pt-2">
-                <button
+              <div className="pt-2 flex items-center justify-end gap-2">
+                <Button
                   type="button"
+                  variant="outline"
+                  size="sm"
                   onClick={() => setIsOpen(false)}
                   disabled={submitting}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100"
                 >
                   Cancel
-                </button>
-                <button
+                </Button>
+                <Button
                   type="submit"
+                  variant="black"
+                  size="sm"
                   disabled={submitting}
-                  className="px-4 py-1.5 rounded-lg text-xs font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50 flex items-center space-x-1.5"
                 >
-                  {submitting ? (
-                    <span>Submitting report...</span>
-                  ) : (
-                    <span>Submit Report</span>
-                  )}
-                </button>
+                  {submitting ? 'Submitting...' : 'Submit Report'}
+                </Button>
               </div>
             </form>
           </div>
@@ -202,4 +188,3 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy }) {
     </div>
   )
 }
-

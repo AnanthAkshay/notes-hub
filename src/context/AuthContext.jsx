@@ -103,6 +103,29 @@ export function AuthProvider({ children }) {
     return data
   }
 
+  // Request 6-digit OTP code sent to college email
+  const signInWithOtp = async (email) => {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+      },
+    })
+    if (error) throw error
+    return data
+  }
+
+  // Verify 6-digit OTP code
+  const verifyOtp = async ({ email, token }) => {
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    })
+    if (error) throw error
+    return data
+  }
+
   // Sign out the current user
   const signOut = async () => {
     const { error } = await supabase.auth.signOut()
@@ -117,6 +140,8 @@ export function AuthProvider({ children }) {
     loading,
     signIn,
     signUp,
+    signInWithOtp,
+    verifyOtp,
     signOut,
     refreshProfile: () => (user ? fetchProfile(user.id) : Promise.resolve(null)),
   }

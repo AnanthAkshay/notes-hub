@@ -1,14 +1,19 @@
+import { Link } from 'react-router-dom'
+import { FileText, ExternalLink, CheckCircle2, AlertTriangle } from 'lucide-react'
 import { formatRelativeDate } from '../lib/formatDate'
+import { getSubjectMeta } from '../lib/constants'
+import { useAuth } from '../hooks/useAuth'
 import VoteButtons from './VoteButtons'
-import VerifyButton from './VerifyButton'
-import ReportButton from './ReportButton'
+import { Pill } from './ui/Pill'
 
 export default function NoteCard({
   note,
   userVote = 0,
   onVoteChange,
-  onVerificationChange,
 }) {
+  const { profile } = useAuth()
+  const isTeacher = profile?.role === 'teacher'
+
   const uploaderName =
     note.profiles?.full_name ||
     note.profiles?.email?.split('@')[0] ||
@@ -19,118 +24,126 @@ export default function NoteCard({
     note.verifier?.full_name ||
     'Faculty'
 
-  const isUploaderTeacher = note.profiles?.role === 'teacher'
   const isExternalLink =
     note.file_url?.startsWith('http://') ||
     note.file_url?.startsWith('https://')
 
+  const meta = getSubjectMeta(note.subject)
+  const isNeedsReview = Boolean(
+    note.needs_review || (note.reports_count && note.reports_count > 0) || note.score <= -3
+  )
+
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between overflow-hidden">
-      {/* Card Header & Badges */}
-      <div className="p-5 pb-3">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-              {note.subject}
+    <Link
+      to={`/notes/${note.id}`}
+      className="group flex flex-col focus-visible:outline-2 focus-visible:outline-black rounded-[20px] transition-transform duration-200 hover:-translate-y-1 select-none"
+    >
+      {/* Generated Graphic Cover Tile (20px radius in #F0EEED, tinted per subject) */}
+      <div
+        className="w-full aspect-[4/3] rounded-[20px] bg-[#F0EEED] relative flex flex-col items-center justify-center p-6 overflow-hidden border border-black/5 transition-colors group-hover:border-black/20"
+        style={{
+          backgroundColor: meta.tint,
+        }}
+      >
+        {/* Subtle background monogram */}
+        <span
+          className="absolute -right-4 -bottom-4 font-display text-7xl sm:text-8xl select-none pointer-events-none opacity-10"
+          style={{ color: meta.accent }}
+        >
+          {meta.initials}
+        </span>
+
+        {/* Central Graphic Document Emblem */}
+        <div className="w-16 h-20 sm:w-20 sm:h-24 bg-white rounded-xl shadow-xs border border-black/10 flex flex-col items-center justify-between p-3 relative transform transition-transform duration-200 group-hover:scale-105">
+          <div className="flex items-center justify-between w-full">
+            <span
+              className="font-display text-xs font-black tracking-wider"
+              style={{ color: meta.accent }}
+            >
+              {meta.initials}
             </span>
-            <span className="px-2.5 py-0.5 text-xs font-medium rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-              {note.semester}
+            <FileText className="w-4 h-4 text-black/40" />
+          </div>
+
+          <div className="w-full text-center py-1">
+            <span className="text-[10px] font-bold tracking-widest text-black/40 uppercase block">
+              {meta.code}
             </span>
           </div>
 
-          {/* Teacher Verified Badge (Interactive / Informative) */}
-          {note.verified ? (
-            <div
-              className="inline-flex items-center space-x-1.5 px-2.5 py-0.5 text-xs font-semibold rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300"
-              title={
-                note.verified_at
-                  ? `Verified by ${verifierName} (${formatRelativeDate(note.verified_at)})`
-                  : `Verified by ${verifierName}`
-              }
-            >
-              <span className="text-emerald-600 font-bold">✓</span>
-              <span>Verified by {verifierName}</span>
-            </div>
-          ) : (
-            <span className="text-[11px] text-gray-400 font-medium">
-              Community Upload
-            </span>
-          )}
-        </div>
-
-        {/* Note Title */}
-        <h2 className="text-lg font-bold text-gray-900 tracking-tight leading-snug mb-2 line-clamp-2">
-          {note.title}
-        </h2>
-
-        {/* Note Description */}
-        <p className="text-sm text-gray-600 line-clamp-3 leading-relaxed mb-4">
-          {note.description || (
-            <span className="italic text-gray-400">No description provided.</span>
-          )}
-        </p>
-
-        {/* Uploader & Timestamp */}
-        <div className="flex items-center justify-between text-xs text-gray-500 pt-3 border-t border-gray-100">
-          <div className="flex items-center space-x-1.5 truncate">
-            <span className="text-gray-400">By</span>
-            <span className="font-medium text-gray-700 truncate max-w-[130px]">
-              {uploaderName}
-            </span>
-            {isUploaderTeacher && (
-              <span className="px-1.5 py-0.2 text-[10px] font-bold rounded bg-purple-100 text-purple-700 uppercase">
-                Faculty
-              </span>
+          <div className="w-full border-t border-black/10 pt-1 flex items-center justify-between text-[9px] text-black/50 font-medium">
+            <span>{note.semester}</span>
+            {isExternalLink ? (
+              <ExternalLink className="w-2.5 h-2.5" />
+            ) : (
+              <span>PDF</span>
             )}
           </div>
-          <span title={note.created_at}>
-            {formatRelativeDate(note.created_at)}
-          </span>
+        </div>
+
+        {/* Top Badges overlay */}
+        <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-1.5">
+          <Pill size="xs" variant="white">
+            {note.subject}
+          </Pill>
+          {note.verified && (
+            <span className="bg-[#01AB31] text-white p-1 rounded-full shadow-xs" title="Faculty Verified">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+            </span>
+          )}
         </div>
       </div>
 
-      {/* Card Footer (Vote Capsule, Teacher Verify Button, View Button) */}
-      <div className="px-5 py-3.5 bg-slate-50 border-t border-gray-100 flex items-center justify-between gap-2 sm:gap-3">
-        {/* Left: Interactive Vote Buttons */}
-        <VoteButtons
-          noteId={note.id}
-          initialScore={note.score}
-          initialUserVote={userVote}
-          uploadedBy={note.uploaded_by}
-          onVoteChange={(newScore, newUserVote) =>
-            onVoteChange?.(note.id, newScore, newUserVote)
-          }
-        />
+      {/* Note Card Meta Details */}
+      <div className="pt-3 pb-1 flex flex-col flex-1">
+        {/* Title (2-line clamp) */}
+        <h3 className="font-bold text-base sm:text-lg text-black line-clamp-2 leading-snug group-hover:text-black/80 transition-colors">
+          {note.title}
+        </h3>
 
-        {/* Middle/Right: Teacher Verify Button & View Link */}
-        <div className="flex items-center space-x-2">
-          {/* Phase 5 Teacher Verification Action */}
-          <VerifyButton
-            noteId={note.id}
-            verified={note.verified}
-            uploadedBy={note.uploaded_by}
-            onVerificationChange={(res) => onVerificationChange?.(note.id, res)}
-          />
+        {/* Score Pill & Sem Chip (Like star ratings row in reference) */}
+        <div className="flex items-center justify-between gap-2 mt-2">
+          <div className="flex items-center gap-2">
+            <VoteButtons
+              noteId={note.id}
+              initialScore={note.score}
+              initialUserVote={userVote}
+              uploadedBy={note.uploaded_by}
+              onVoteChange={onVoteChange}
+              size="sm"
+            />
+            <Pill size="xs" variant="default">
+              {note.semester}
+            </Pill>
+          </div>
 
-          {/* View / Download Button */}
-          <a
-            href={note.file_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center space-x-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium rounded-lg transition-colors shadow-2xs whitespace-nowrap"
-          >
-            <span>{isExternalLink ? 'View' : 'View'}</span>
-            <span>↗</span>
-          </a>
+          {/* Teacher-only needs review indicator */}
+          {isTeacher && isNeedsReview && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#FF3333] bg-[#FF3333]/10 px-2 py-0.5 rounded-full border border-[#FF3333]/20">
+              <AlertTriangle className="w-3 h-3" />
+              <span>Review</span>
+            </span>
+          )}
+        </div>
 
-          {/* Phase 7 Report Button */}
-          <ReportButton
-            noteId={note.id}
-            noteTitle={note.title}
-            uploadedBy={note.uploaded_by}
-          />
+        {/* Faculty Verified Badge */}
+        {note.verified ? (
+          <div className="mt-2.5 flex items-center gap-1.5 text-xs text-[#01AB31] font-semibold">
+            <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Verified by {verifierName}</span>
+          </div>
+        ) : (
+          <div className="mt-2.5 text-xs text-black/40 font-medium">
+            Community Upload
+          </div>
+        )}
+
+        {/* Uploader and Relative Date */}
+        <div className="mt-2 text-xs text-black/50 flex items-center justify-between pt-2 border-t border-black/5">
+          <span className="truncate max-w-[140px]">By {uploaderName}</span>
+          <span className="shrink-0">{formatRelativeDate(note.created_at)}</span>
         </div>
       </div>
-    </div>
+    </Link>
   )
 }
