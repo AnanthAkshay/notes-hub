@@ -7,8 +7,8 @@ export function Card({
 }) {
   return (
     <Component
-      className={`bg-white rounded-[20px] border border-black/10 transition-all duration-200 ${
-        hover ? 'hover:-translate-y-1 hover:border-black/30' : ''
+      className={`bg-[var(--bg-elevated)] rounded-[8px] border border-[var(--border-hairline)] transition-colors duration-150 ${
+        hover ? 'hover:border-[var(--border-strong)]' : ''
       } ${className}`}
       {...props}
     >
@@ -26,8 +26,8 @@ export function Tile({
 }) {
   return (
     <Component
-      className={`bg-[#F0EEED] rounded-[20px] transition-all duration-200 ${
-        hover ? 'hover:bg-[#E8E5E4] hover:-translate-y-0.5' : ''
+      className={`bg-[var(--bg-surface)] rounded-[8px] border border-[var(--border-hairline)] transition-colors duration-150 ${
+        hover ? 'hover:bg-[var(--bg-surface-hover)] hover:border-[var(--border-strong)]' : ''
       } ${className}`}
       {...props}
     >

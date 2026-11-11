@@ -51,7 +51,7 @@ export const ALLOWED_FILE_TYPES = [
 
 export const ALLOWED_FILE_EXTENSIONS = '.pdf,.png,.jpg,.jpeg'
 
-export const ITEMS_PER_PAGE = 20
+export const ITEMS_PER_PAGE = 12
 
 // Per-subject initials, muted tint colors, and catalog codes (no external images)
 export const SUBJECT_METADATA = {

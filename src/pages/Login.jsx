@@ -1,270 +1,276 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Mail, Lock, ShieldCheck, ArrowRight, ArrowLeft } from 'lucide-react'
+import { Mail, ShieldCheck, ArrowRight, ArrowLeft } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { supabase } from '../lib/supabaseClient'
+import {
+  ALLOWED_NOT_REGISTERED_MESSAGE,
+  resolveLoginIdentifier,
+  mapAuthErrorMessage,
+} from '../lib/authHelpers'
 import Button from '../components/ui/Button'
+import { EyeOpenGlyph, EyeClosedGlyph } from '../components/icons/ArchiveIcons'
+
+const RESEND_COOLDOWN_SECONDS = 60
 
 export default function Login() {
-  const { user, signIn, signUp, signInWithOtp, verifyOtp, loading: authLoading } = useAuth()
+  const { user, signInWithOtp, verifyOtp, loading: authLoading } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
-  // Allowed domain from env
   const allowedDomain = import.meta.env.VITE_ALLOWED_EMAIL_DOMAIN || 'msrit.edu'
 
-  // Mode: 'otp-request' | 'otp-verify' | 'password'
-  const [authMode, setAuthMode] = useState('otp-request')
-  const [isSignUp, setIsSignUp] = useState(false)
-
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [fullName, setFullName] = useState('')
-
-  // 6 separate OTP digits
+  const [step, setStep] = useState('otp-request')
+  const [identifier, setIdentifier] = useState('')
+  const [resolvedEmail, setResolvedEmail] = useState('')
   const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', ''])
-  const inputRefs = useRef([])
-
-  // Resend countdown timer
+  const [maskDigits, setMaskDigits] = useState(false)
   const [resendTimer, setResendTimer] = useState(0)
-
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [infoMessage, setInfoMessage] = useState('')
 
+  const inputRefs = useRef([])
+  const verifyingRef = useRef(false)
+  const requestingRef = useRef(false)
+
   useEffect(() => {
-    let interval
-    if (resendTimer > 0) {
-      interval = setInterval(() => {
-        setResendTimer((prev) => prev - 1)
-      }, 1000)
-    }
+    if (resendTimer <= 0) return undefined
+    const interval = setInterval(() => {
+      setResendTimer((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
     return () => clearInterval(interval)
   }, [resendTimer])
 
-  // Redirect if logged in
-  if (!authLoading && user) {
-    const destination = location.state?.from?.pathname || '/'
-    return <Navigate to={destination} replace />
-  }
+  const sendOtpForEmail = useCallback(
+    async (targetEmail) => {
+      if (requestingRef.current) return
+      requestingRef.current = true
+      setError('')
+      setInfoMessage('')
+      setSubmitting(true)
 
-  // Resolve input to proper email: if user enters USN "1ms24is001", append "@msrit.edu"
-  const getResolvedEmail = (raw) => {
-    const trimmed = raw.trim().toLowerCase()
-    if (!trimmed) return ''
-    if (trimmed.includes('@')) return trimmed
-    return `${trimmed}@${allowedDomain}`
-  }
+      try {
+        const { data: allowed, error: checkError } = await supabase.rpc(
+          'check_email_allowed',
+          { p_email: targetEmail }
+        )
 
-  const validateCollegeEmail = (raw) => {
-    const resolved = getResolvedEmail(raw)
-    const domainEscaped = allowedDomain.replace(/\./g, '\\.')
-    const domainRegex = new RegExp(`@${domainEscaped}$`, 'i')
-    return domainRegex.test(resolved)
-  }
+        if (checkError) {
+          throw checkError
+        }
 
-  // Send OTP
+        if (allowed !== true) {
+          setError(ALLOWED_NOT_REGISTERED_MESSAGE)
+          return
+        }
+
+        await signInWithOtp(targetEmail)
+        setResolvedEmail(targetEmail)
+        setStep('otp-verify')
+        setOtpDigits(['', '', '', '', '', ''])
+        setResendTimer(RESEND_COOLDOWN_SECONDS)
+        setInfoMessage(`We sent a 6-digit verification code to ${targetEmail}`)
+      } catch (err) {
+        console.error('[OTP Request Error]', err)
+        setError(mapAuthErrorMessage(err))
+      } finally {
+        requestingRef.current = false
+        setSubmitting(false)
+      }
+    },
+    [signInWithOtp]
+  )
+
   const handleRequestOtp = async (e) => {
     e.preventDefault()
-    setError('')
-    setInfoMessage('')
+    const resolved = resolveLoginIdentifier(identifier, allowedDomain)
 
-    const resolved = getResolvedEmail(email)
-    if (!validateCollegeEmail(resolved)) {
-      setError(`Access restricted: Please enter a valid college email or USN ending with @${allowedDomain}`)
+    if (!resolved.valid) {
+      setError(
+        `Enter your college USN (e.g. 1MS24IS013) or institutional email (@${allowedDomain}).`
+      )
       return
     }
 
-    setSubmitting(true)
-    try {
-      await signInWithOtp(resolved)
-      setAuthMode('otp-verify')
-      setResendTimer(45)
-      setInfoMessage(`We sent a 6-digit verification code to ${resolved}`)
-    } catch (err) {
-      console.error('[OTP Error]', err)
-      // If OTP provider is not configured or fails, offer fallback to password
-      setError(err.message || 'Failed to send OTP code. Try password sign-in below.')
-    } finally {
-      setSubmitting(false)
-    }
+    await sendOtpForEmail(resolved.email)
   }
 
-  // Handle individual OTP digit change
-  const handleDigitChange = (index, value) => {
-    if (value.length > 1) {
-      // Handle paste of complete 6-digit code
-      const pasted = value.replace(/\D/g, '').slice(0, 6).split('')
+  const handleResendCode = async () => {
+    if (resendTimer > 0 || !resolvedEmail) return
+    await sendOtpForEmail(resolvedEmail)
+  }
+
+  const submitOtpToken = useCallback(
+    async (token) => {
+      if (verifyingRef.current) return
+      if (token.length !== 6) {
+        setError('Please enter all 6 digits of the verification code.')
+        return
+      }
+
+      verifyingRef.current = true
+      setError('')
+      setInfoMessage('')
+      setSubmitting(true)
+
+      try {
+        await verifyOtp({ email: resolvedEmail, token })
+        const destination = location.state?.from?.pathname || '/'
+        navigate(destination, { replace: true })
+      } catch (err) {
+        console.error('[Verify OTP Error]', err)
+        setError(mapAuthErrorMessage(err))
+      } finally {
+        verifyingRef.current = false
+        setSubmitting(false)
+      }
+    },
+    [verifyOtp, resolvedEmail, location.state, navigate]
+  )
+
+  const handleVerifySubmit = async (e) => {
+    e.preventDefault()
+    await submitOtpToken(otpDigits.join(''))
+  }
+
+  const handleDigitChange = (index, rawValue) => {
+    const digitsOnly = rawValue.replace(/\D/g, '')
+
+    if (digitsOnly.length >= 6) {
+      const pasted = digitsOnly.slice(0, 6).split('')
+      setOtpDigits(pasted)
+      inputRefs.current[5]?.focus()
+      void submitOtpToken(pasted.join(''))
+      return
+    }
+
+    if (digitsOnly.length > 1) {
+      const prevDigit = otpDigits[index]
+      if (prevDigit && digitsOnly.length === 2) {
+        const newDigit =
+          digitsOnly[0] === prevDigit ? digitsOnly[1] : digitsOnly[0]
+        const next = [...otpDigits]
+        next[index] = newDigit
+        setOtpDigits(next)
+        if (index < 5) inputRefs.current[index + 1]?.focus()
+        const fullCode = next.join('')
+        if (fullCode.length === 6 && next.every((d) => d.length === 1)) {
+          void submitOtpToken(fullCode)
+        }
+        return
+      }
+
       const next = [...otpDigits]
-      pasted.forEach((char, i) => {
-        if (i < 6) next[i] = char
-      })
+      for (let i = 0; i < digitsOnly.length && index + i < 6; i += 1) {
+        next[index + i] = digitsOnly[i]
+      }
       setOtpDigits(next)
-      const nextIndex = Math.min(pasted.length, 5)
-      inputRefs.current[nextIndex]?.focus()
+      const focusIdx = Math.min(index + digitsOnly.length - 1, 5)
+      if (focusIdx >= 0) inputRefs.current[focusIdx]?.focus()
+      const fullCode = next.join('')
+      if (fullCode.length === 6 && next.every((d) => d.length === 1)) {
+        void submitOtpToken(fullCode)
+      }
       return
     }
 
     const next = [...otpDigits]
-    next[index] = value.replace(/\D/g, '')
+    next[index] = digitsOnly
     setOtpDigits(next)
 
-    // Auto-advance to next box if digit typed
-    if (value && index < 5) {
+    if (digitsOnly && index < 5) {
       inputRefs.current[index + 1]?.focus()
+    }
+
+    const fullCode = next.join('')
+    if (fullCode.length === 6 && next.every((d) => d.length === 1)) {
+      void submitOtpToken(fullCode)
     }
   }
 
-  // Handle backspace navigation
   const handleKeyDown = (index, e) => {
     if (e.key === 'Backspace' && !otpDigits[index] && index > 0) {
       inputRefs.current[index - 1]?.focus()
     }
   }
 
-  // Verify OTP
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault()
+  const handleChangeEmail = () => {
+    setStep('otp-request')
+    setOtpDigits(['', '', '', '', '', ''])
+    setResendTimer(0)
     setError('')
     setInfoMessage('')
-
-    const token = otpDigits.join('')
-    if (token.length !== 6) {
-      setError('Please enter all 6 digits of the verification code.')
-      return
-    }
-
-    setSubmitting(true)
-    const resolved = getResolvedEmail(email)
-
-    try {
-      await verifyOtp({ email: resolved, token })
-      const destination = location.state?.from?.pathname || '/'
-      navigate(destination)
-    } catch (err) {
-      console.error('[Verify OTP Error]', err)
-      setError(err.message || 'Invalid or expired verification code. Please retry.')
-    } finally {
-      setSubmitting(false)
-    }
   }
 
-  // Password Sign In / Sign Up handler
-  const handlePasswordSubmit = async (e) => {
-    e.preventDefault()
-    setError('')
-    setInfoMessage('')
-
-    const resolved = getResolvedEmail(email)
-    if (!validateCollegeEmail(resolved)) {
-      setError(`Access restricted: Please enter your official college email ending with @${allowedDomain}`)
-      return
-    }
-
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters long.')
-      return
-    }
-
-    setSubmitting(true)
-    try {
-      if (isSignUp) {
-        if (!fullName.trim()) {
-          setError('Please provide your full name.')
-          setSubmitting(false)
-          return
-        }
-
-        const data = await signUp({
-          email: resolved,
-          password,
-          fullName: fullName.trim(),
-        })
-
-        if (data?.session) {
-          navigate('/')
-        } else {
-          setInfoMessage('Account created! Verification email has been dispatched.')
-          setIsSignUp(false)
-        }
-      } else {
-        await signIn({
-          email: resolved,
-          password,
-        })
-        const destination = location.state?.from?.pathname || '/'
-        navigate(destination)
-      }
-    } catch (err) {
-      console.error('[Auth Error]', err)
-      if (err.message?.includes('Invalid login credentials')) {
-        setError('Incorrect email or password. Please verify and try again.')
-      } else {
-        setError(err.message || 'Authentication error.')
-      }
-    } finally {
-      setSubmitting(false)
-    }
+  if (!authLoading && user) {
+    const destination = location.state?.from?.pathname || '/'
+    return <Navigate to={destination} replace />
   }
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4 py-12 bg-white">
-      <div className="max-w-md w-full bg-white rounded-[24px] border border-black/10 p-8 sm:p-10 shadow-xs text-center">
-        {/* Brand Icon & Heading */}
-        <div className="w-12 h-12 rounded-full bg-[#F0EEED] flex items-center justify-center mx-auto mb-4 text-black">
-          <ShieldCheck className="w-6 h-6" />
+    <div className="min-h-[78vh] flex items-center justify-center px-4 py-12 bg-[var(--bg-canvas)]">
+      <div className="max-w-md w-full bg-[var(--bg-elevated)] rounded-[8px] border border-[var(--border-strong)] p-7 sm:p-9 text-left">
+        <div className="flex items-center gap-3 pb-5 mb-6 border-b border-[var(--border-hairline)]">
+          <div className="w-10 h-10 rounded-[6px] bg-[var(--bg-surface)] border border-[var(--border-hairline)] flex items-center justify-center text-[var(--text-ink)] shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl text-[var(--text-ink)] tracking-tight">
+              {step === 'otp-verify' ? 'Enter Verification Code' : 'Institutional Access'}
+            </h1>
+            <p className="text-xs text-[var(--text-muted)] mt-0.5">
+              {step === 'otp-verify'
+                ? `Sent to ${resolvedEmail}`
+                : `Passwordless Email OTP for @${allowedDomain} roster & approved staff`}
+            </p>
+          </div>
         </div>
 
-        <h1 className="font-display text-2xl sm:text-3xl text-black uppercase tracking-tight">
-          {authMode === 'otp-verify'
-            ? 'ENTER VERIFY CODE'
-            : authMode === 'password'
-              ? isSignUp
-                ? 'CREATE ACCOUNT'
-                : 'SIGN IN'
-              : 'COLLEGE ACCESS'}
-        </h1>
-
-        <p className="text-xs text-black/60 mt-1.5 mb-6 font-medium">
-          {authMode === 'otp-verify'
-            ? `Enter the 6-digit code sent to ${getResolvedEmail(email)}`
-            : `Restricted to verified @${allowedDomain} college members`}
-        </p>
-
-        {/* Info or Error Notifications */}
         {error && (
-          <div className="mb-6 p-3 rounded-[16px] bg-[#FF3333]/10 border border-[#FF3333]/20 text-xs font-semibold text-[#FF3333] text-left">
+          <div
+            role="alert"
+            className="mb-5 p-3 rounded-[6px] bg-[var(--accent-danger-bg)] border border-[var(--accent-danger)]/30 text-xs font-semibold text-[var(--accent-danger)]"
+          >
             {error}
           </div>
         )}
 
         {infoMessage && (
-          <div className="mb-6 p-3 rounded-[16px] bg-[#01AB31]/10 border border-[#01AB31]/20 text-xs font-semibold text-[#01AB31] text-left">
+          <div
+            role="status"
+            className="mb-5 p-3 rounded-[6px] bg-[var(--accent-verified-bg)] border border-[var(--accent-verified)]/30 text-xs font-semibold text-[var(--accent-verified)]"
+          >
             {infoMessage}
           </div>
         )}
 
-        {/* ================================================================ */}
-        {/* FLOW 1: REQUEST OTP (Email / USN input)                           */}
-        {/* ================================================================ */}
-        {authMode === 'otp-request' && (
-          <form onSubmit={handleRequestOtp} className="space-y-4 text-left">
+        {/* STEP 1: USN OR EMAIL INPUT */}
+        {step === 'otp-request' && (
+          <form onSubmit={handleRequestOtp} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
+              <label
+                htmlFor="login-identifier"
+                className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+              >
                 USN or College Email
               </label>
               <div className="relative">
-                <Mail className="w-4 h-4 text-black/40 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Mail className="w-4 h-4 text-[var(--text-subtle)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
+                  id="login-identifier"
                   type="text"
                   required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={`1ms24is001 or name@${allowedDomain}`}
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full pl-11 pr-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
+                  autoComplete="username"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  placeholder={`1MS24IS013 or name@${allowedDomain}`}
+                  aria-invalid={Boolean(error)}
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] placeholder:text-[var(--text-subtle)] text-sm rounded-[6px] pl-10 pr-4 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] transition-colors font-medium"
                 />
               </div>
-              <p className="text-[11px] text-black/40 mt-1 pl-2">
-                Tip: Enter your USN or full institutional email.
+              <p className="text-[11px] text-[var(--text-subtle)] mt-1.5">
+                Students: enter your USN (e.g. 1MS24IS013). Staff: enter your registered email.
               </p>
             </div>
 
@@ -273,42 +279,58 @@ export default function Login() {
               variant="black"
               size="lg"
               disabled={submitting}
-              className="w-full mt-2 font-bold"
+              className="w-full"
             >
-              <span>{submitting ? 'Sending Code...' : 'Send 6-Digit Code'}</span>
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <span>{submitting ? 'Checking & Sending...' : 'Send 6-Digit Code'}</span>
+              <ArrowRight className="w-4 h-4" />
             </Button>
-
-            <div className="pt-4 border-t border-black/10 text-center">
-              <button
-                type="button"
-                onClick={() => setAuthMode('password')}
-                className="text-xs font-semibold text-black/70 hover:text-black underline cursor-pointer"
-              >
-                Or sign in with Password / Existing Demo Account
-              </button>
-            </div>
           </form>
         )}
 
-        {/* ================================================================ */}
-        {/* FLOW 2: ENTER 6-DIGIT CODE (Square rounded boxes)                */}
-        {/* ================================================================ */}
-        {authMode === 'otp-verify' && (
-          <form onSubmit={handleVerifyOtp} className="space-y-6">
-            {/* 6 separate square rounded code boxes */}
-            <div className="flex justify-center gap-2 sm:gap-2.5">
+        {/* STEP 2: 6-DIGIT OTP CODE VERIFICATION */}
+        {step === 'otp-verify' && (
+          <form onSubmit={handleVerifySubmit} className="space-y-5">
+            <div className="flex items-center justify-between">
+              <span className="font-mono-meta text-[11px] uppercase tracking-wider text-[var(--text-subtle)]">
+                6-Digit Security Code
+              </span>
+              <button
+                type="button"
+                onClick={() => setMaskDigits((prev) => !prev)}
+                aria-pressed={maskDigits}
+                aria-label={maskDigits ? 'Show code digits' : 'Hide code digits'}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--text-muted)] hover:text-[var(--text-ink)] cursor-pointer"
+              >
+                {maskDigits ? (
+                  <>
+                    <EyeOpenGlyph className="w-3.5 h-3.5" />
+                    <span>Show digits</span>
+                  </>
+                ) : (
+                  <>
+                    <EyeClosedGlyph className="w-3.5 h-3.5" />
+                    <span>Hide digits</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-6 gap-2">
               {otpDigits.map((digit, idx) => (
                 <input
                   key={idx}
                   ref={(el) => (inputRefs.current[idx] = el)}
-                  type="text"
+                  type={maskDigits ? 'password' : 'text'}
                   inputMode="numeric"
-                  maxLength={1}
+                  pattern="[0-9]*"
+                  autoComplete={idx === 0 ? 'one-time-code' : 'off'}
+                  maxLength={6}
                   value={digit}
                   onChange={(e) => handleDigitChange(idx, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(idx, e.target)}
-                  className="w-11 h-13 sm:w-12 sm:h-14 text-center font-display text-xl text-black bg-white rounded-xl border border-black/20 focus:border-black focus:outline-none focus:ring-1 focus:ring-black transition-all shadow-2xs"
+                  onKeyDown={(e) => handleKeyDown(idx, e)}
+                  disabled={submitting}
+                  aria-label={`Verification digit ${idx + 1}`}
+                  className="h-12 sm:h-13 text-center font-mono-meta font-semibold text-lg text-[var(--text-ink)] bg-[var(--bg-surface)] rounded-[6px] border border-[var(--border-hairline)] focus:border-[var(--accent-primary)] focus:bg-[var(--bg-elevated)] focus:outline-none transition-colors disabled:opacity-60"
                   autoFocus={idx === 0}
                 />
               ))}
@@ -319,118 +341,37 @@ export default function Login() {
               variant="black"
               size="lg"
               disabled={submitting}
-              className="w-full font-bold"
+              className="w-full"
             >
               <span>{submitting ? 'Verifying Code...' : 'Verify & Continue'}</span>
-              <ArrowRight className="w-4 h-4 ml-1" />
+              <ArrowRight className="w-4 h-4" />
             </Button>
 
-            <div className="flex items-center justify-between text-xs text-black/60 pt-2">
+            <div className="flex items-center justify-between text-xs text-[var(--text-muted)] pt-2 border-t border-[var(--border-hairline)]">
               <button
                 type="button"
-                onClick={() => setAuthMode('otp-request')}
-                className="flex items-center gap-1 hover:text-black font-semibold cursor-pointer"
+                onClick={handleChangeEmail}
+                disabled={submitting}
+                className="inline-flex items-center gap-1 hover:text-[var(--text-ink)] font-semibold cursor-pointer disabled:opacity-50"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Change Email</span>
+                <span>Change email</span>
               </button>
 
               {resendTimer > 0 ? (
-                <span className="text-black/40">Resend in {resendTimer}s</span>
+                <span className="font-mono-meta text-[var(--text-subtle)]">
+                  Resend in {resendTimer}s
+                </span>
               ) : (
                 <button
                   type="button"
-                  onClick={handleRequestOtp}
-                  className="font-bold text-black underline hover:opacity-80 cursor-pointer"
+                  onClick={handleResendCode}
+                  disabled={submitting}
+                  className="font-semibold text-[var(--text-ink)] underline hover:opacity-80 cursor-pointer disabled:opacity-50"
                 >
                   Resend Code
                 </button>
               )}
-            </div>
-          </form>
-        )}
-
-        {/* ================================================================ */}
-        {/* FLOW 3: PASSWORD LOGIN & SIGNUP (Existing accounts & demo)       */}
-        {/* ================================================================ */}
-        {authMode === 'password' && (
-          <form onSubmit={handlePasswordSubmit} className="space-y-4 text-left">
-            {isSignUp && (
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                  Full Name
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="e.g. Aarav Sharma"
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full px-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
-                />
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                USN or College Email
-              </label>
-              <div className="relative">
-                <Mail className="w-4 h-4 text-black/40 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="text"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder={`name@${allowedDomain} or USN`}
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full pl-11 pr-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                Password
-              </label>
-              <div className="relative">
-                <Lock className="w-4 h-4 text-black/40 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <input
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full pl-11 pr-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
-                />
-              </div>
-            </div>
-
-            <Button
-              type="submit"
-              variant="black"
-              size="lg"
-              disabled={submitting}
-              className="w-full mt-2 font-bold"
-            >
-              <span>{submitting ? 'Signing In...' : isSignUp ? 'Create Account' : 'Sign In with Password'}</span>
-            </Button>
-
-            <div className="pt-4 border-t border-black/10 flex items-center justify-between text-xs">
-              <button
-                type="button"
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="font-semibold text-black underline cursor-pointer"
-              >
-                {isSignUp ? 'Already have an account? Sign In' : 'New student? Register'}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setAuthMode('otp-request')}
-                className="text-black/60 hover:text-black font-medium cursor-pointer"
-              >
-                Use 6-Digit OTP
-              </button>
             </div>
           </form>
         )}

@@ -166,3 +166,94 @@ Follow these step-by-step instructions to set up your free Supabase backend and 
    - All tests in `src/test/pureLogic.test.js` should pass cleanly.
 4. **Comprehensive Manual Testing**:
    - Refer to [`TESTING.md`](./TESTING.md) for the end-to-end multi-account test plan.
+
+---
+
+# Part 8: Vote Integrity & Feed Performance (Phase 8)
+
+## 14. Run the Phase 8 SQL Migration
+
+1. In the Supabase Dashboard, open **SQL Editor** (`>_`) > **New query**.
+2. Paste and run [`supabase/phase8.sql`](./supabase/phase8.sql).
+3. Run the mismatch diagnostic query in [`supabase/reconcile_scores.sql`](./supabase/reconcile_scores.sql) and verify it returns **0 rows**.
+
+---
+
+# Part 9: Passwordless Email OTP, Student Roster & Staff Admin (Phase 9)
+
+## 15. Generate & Import the Private Student Roster
+
+> [!WARNING]
+> Never commit `data/students.csv`, `students.csv`, or `supabase/roster*.sql`. Both `data/` and `supabase/roster*.sql` are listed in `.gitignore`.
+
+1. Place your roster CSV at `data/students.csv` (must have `usn` and `name` headers; all other columns are ignored).
+2. Run the local roster import script in order:
+   ```bash
+   node scripts/build-roster.mjs
+   ```
+   This validates USN format (`^1MS\d{2}IS\d{3}$`), checks for duplicates/blank names, and generates the gitignored `supabase/roster.sql` containing **only** `usn`, `name`, and `email` (`lowercase(usn)@msrit.edu`).
+3. **Run order in Supabase SQL Editor**:
+   1. First run `supabase/roster.sql` (populates `public.student_roster` with RLS enabled and zero client policies).
+   2. Next run [`supabase/phase9_auth.sql`](./supabase/phase9_auth.sql) (configures `staff_allowlist`, `profiles.usn`, `auth.users` roster/staff gate, `handle_new_user` Title Case naming, `check_email_allowed`, and admin RPCs).
+
+---
+
+## 16. Configure Supabase SMTP (Gmail App Password) & OTP Email Templates
+
+Supabase's built-in email service is capped at 2–4 emails/hour on the Free Tier and delivers reliably only when custom SMTP is configured:
+
+1. **Create a Gmail App Password**:
+   - Enable **2-Step Verification** on the Google account you want to send OTP emails from.
+   - Open Google Account **Security** > **App passwords**, create one for **Mail**, and copy the 16-character password.
+2. **Configure Custom SMTP in Supabase**:
+   - Go to **Project Settings** > **Authentication** > **SMTP Settings** and toggle **Enable Custom SMTP** ON.
+   - **Sender email**: your Gmail address (e.g. `noteshub.admin@gmail.com`).
+   - **Sender name**: `Notes Hub`.
+   - **Host**: `smtp.gmail.com`
+   - **Port**: `465` (or `587`).
+   - **Username**: your Gmail address.
+   - **Password**: the 16-character Gmail App Password.
+   - Click **Save**.
+3. **Update Email Templates to send 6-digit OTP (`{{ .Token }}`)**:
+   - Go to **Authentication** > **Email Templates**.
+   - Make sure **Email** provider has **Enable Email OTP** active (**Authentication** > **Providers** > **Email**).
+   - Edit **Confirm signup** (used when a roster student or staff member signs in for the very first time via `shouldCreateUser: true`):
+     ```html
+     <h2>Confirm your Notes Hub login</h2>
+     <p>Enter this 6-digit code to finish signing in:</p>
+     <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">{{ .Token }}</p>
+     ```
+   - Edit **Magic Link** (used for subsequent OTP logins):
+     ```html
+     <h2>Your Notes Hub login code</h2>
+     <p>Enter this 6-digit verification code:</p>
+     <p style="font-size:24px;font-weight:bold;letter-spacing:4px;">{{ .Token }}</p>
+     ```
+   - Save both templates.
+
+---
+
+## 17. Bootstrap the First Admin & Add Teachers
+
+1. In the Supabase SQL Editor, run this SQL once (replacing `<MY EMAIL>` and `<MY NAME>` with your own details):
+   ```sql
+   INSERT INTO staff_allowlist (email, full_name, role)
+   VALUES ('<MY EMAIL>', '<MY NAME>', 'admin')
+   ON CONFLICT (email) DO UPDATE SET role = 'admin';
+   ```
+2. Open `/login` in the app, enter your admin email, and verify the 6-digit OTP sent to your inbox.
+3. Once signed in, click **Admin** in the Navbar (`/admin`).
+4. Use the **Add Teacher / Admin** form to add faculty emails (with full name and role `teacher` or `admin`). Added staff can immediately log in via `/login` using their email and OTP, and any matching existing profile role updates automatically.
+
+---
+
+## 18. How to Test Auth, Privacy & Admin Security
+
+1. **Unregistered USN rejected**: On `/login`, enter `1MS24IS999` → rejected before sending an OTP with `"This email isn't registered. Students use their college USN. Teachers: ask the admin to add you."`
+2. **Roster student OTP login**: Enter a valid roster USN (e.g. `1MS24IS001`) → receives 6-digit code → auto-submits on 6th digit → Navbar shows Title Case name (e.g. `Aaditya V`) and USN (`1MS24IS001`).
+3. **Wrong / expired code**: Entering a wrong 6-digit code shows `"Incorrect verification code..."`; waiting past expiry shows `"That verification code has expired..."`; requesting repeatedly shows the 60s countdown or rate-limit message.
+4. **Teacher added via `/admin`**: Add a teacher on `/admin`, log in with that email in an incognito window → role is `teacher` (`Faculty` badge, `/review` access).
+5. **Student blocked from `/admin` & admin RPCs**: Logged in as a student, visiting `/admin` redirects to `/`, and running `await supabase.rpc('admin_list_staff')` in DevTools Console fails with `Unauthorized: Admin privileges required.`
+6. **Roster privacy**: In DevTools Console as anon or student, running `await supabase.from('student_roster').select('*')` fails/returns no rows (RLS enabled, no policies, table privileges revoked).
+7. **Core features intact**: Browse notes, vote, verify notes as faculty, and check ranking (`verified > score > newest`).
+

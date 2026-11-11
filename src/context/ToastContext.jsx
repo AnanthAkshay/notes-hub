@@ -48,32 +48,32 @@ export function ToastProvider({ children }) {
     <ToastContext.Provider value={value}>
       {children}
 
-      {/* Floating Black Rounded Pill Toasts Container */}
       <div
         aria-live="polite"
-        className="fixed bottom-6 right-6 z-50 flex flex-col space-y-2 pointer-events-none max-w-sm w-full px-4 sm:px-0"
+        data-no-print
+        className="fixed top-20 right-4 sm:right-6 z-50 flex flex-col gap-2 pointer-events-none max-w-sm w-full px-4 sm:px-0"
       >
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            className="pointer-events-auto flex items-center justify-between px-4 py-3 rounded-full bg-black text-white shadow-xl border border-white/20 text-xs sm:text-sm font-medium animate-in slide-in-from-bottom-2 duration-150"
+            className="pointer-events-auto flex items-center justify-between px-4 py-3 rounded-[6px] bg-[var(--bg-inverse)] text-[var(--text-inverse)] border border-[var(--border-strong)] text-xs sm:text-sm font-medium"
           >
-            <div className="flex items-center gap-2 truncate pr-2">
+            <div className="flex items-center gap-2.5 truncate pr-2">
               {toast.type === 'success' && (
-                <CheckCircle2 className="w-4 h-4 text-[#01AB31] shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[var(--accent-verified)] shrink-0" />
               )}
               {toast.type === 'error' && (
-                <AlertTriangle className="w-4 h-4 text-[#FF3333] shrink-0" />
+                <AlertTriangle className="w-4 h-4 text-[var(--accent-danger)] shrink-0" />
               )}
               {toast.type === 'info' && (
-                <Info className="w-4 h-4 text-[#FFC633] shrink-0" />
+                <Info className="w-4 h-4 text-[var(--accent-amber)] shrink-0" />
               )}
               <span className="truncate">{toast.message}</span>
             </div>
             <button
               type="button"
               onClick={() => removeToast(toast.id)}
-              className="text-white/60 hover:text-white p-1 rounded-full hover:bg-white/10 transition-colors cursor-pointer shrink-0"
+              className="opacity-70 hover:opacity-100 p-1 rounded-[4px] transition-opacity cursor-pointer shrink-0"
               aria-label="Dismiss notification"
             >
               <X className="w-3.5 h-3.5" />

@@ -4,7 +4,24 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Notes Hub</title>
+    <meta
+      name="description"
+      content="Notes Hub: Peer-reviewed and faculty-verified study notes, lecture summaries, and past exam guides."
+    />
+    <title>Notes Hub · Academic Study Archive</title>
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('notes_hub_theme');
+          var prefersDark =
+            window.matchMedia &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (saved === 'dark' || (!saved && prefersDark)) {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

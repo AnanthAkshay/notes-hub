@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { Upload as UploadIcon, FileText, Link as LinkIcon, CheckCircle2, ArrowRight } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
 import { supabase } from '../lib/supabaseClient'
@@ -16,17 +17,16 @@ import { RoleBadge } from '../components/ui/Badge'
 export default function Upload() {
   const { user, profile } = useAuth()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
-  // Form state
   const [title, setTitle] = useState('')
   const [subject, setSubject] = useState(SUBJECTS[0] || '')
   const [semester, setSemester] = useState(SEMESTERS[4] || SEMESTERS[0] || '')
   const [description, setDescription] = useState('')
-  const [sourceType, setSourceType] = useState('file') // 'file' or 'link'
+  const [sourceType, setSourceType] = useState('file')
   const [file, setFile] = useState(null)
   const [externalLink, setExternalLink] = useState('')
 
-  // UI state
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -39,7 +39,6 @@ export default function Upload() {
       return
     }
 
-    // 1. Check file size (10 MB cap for Supabase free tier)
     if (selected.size > MAX_FILE_SIZE_BYTES) {
       const sizeMb = (selected.size / (1024 * 1024)).toFixed(1)
       setError(
@@ -50,7 +49,6 @@ export default function Upload() {
       return
     }
 
-    // 2. Check file type
     const fileExt = '.' + selected.name.split('.').pop()?.toLowerCase()
     const isAllowedExt = ['.pdf', '.png', '.jpg', '.jpeg'].includes(fileExt)
     const isAllowedMime = ALLOWED_FILE_TYPES.includes(selected.type)
@@ -164,7 +162,11 @@ export default function Upload() {
         throw new Error(`Database error: ${insertError.message}`)
       }
 
-      setSuccess('Note published successfully! Redirecting to feed...')
+      queryClient.invalidateQueries({ queryKey: ['home-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['notes-feed'] })
+      queryClient.invalidateQueries({ queryKey: ['review-queues'] })
+
+      setSuccess('Note published successfully! Redirecting to archive...')
       setTimeout(() => {
         navigate(insertedNote ? `/notes/${insertedNote.id}` : '/notes')
       }, 1000)
@@ -177,64 +179,72 @@ export default function Upload() {
   }
 
   return (
-    <div className="bg-white min-h-screen py-10 sm:py-16">
-      <main className="max-w-2xl mx-auto px-4 sm:px-6">
-        <div className="bg-white rounded-[24px] border border-black/10 p-6 sm:p-10 shadow-xs">
-          {/* Header */}
-          <div className="flex items-center justify-between pb-6 border-b border-black/10 mb-8">
+    <div className="bg-[var(--bg-canvas)] min-h-screen py-10 sm:py-14">
+      <div className="max-w-2xl mx-auto px-4 sm:px-6">
+        <div className="bg-[var(--bg-elevated)] rounded-[8px] border border-[var(--border-strong)] p-6 sm:p-9">
+          <div className="flex items-start justify-between gap-4 pb-5 border-b border-[var(--border-hairline)] mb-7">
             <div>
-              <span className="text-xs uppercase tracking-wider font-bold text-black/50 block mb-1">
+              <span className="font-mono-meta text-[11px] uppercase tracking-[0.14em] text-[var(--text-subtle)] block mb-1">
                 Contribute Study Materials
               </span>
-              <h1 className="font-display text-2xl sm:text-3xl text-black uppercase tracking-tight">
-                UPLOAD STUDY NOTES
+              <h1 className="font-display text-2xl sm:text-3xl text-[var(--text-ink)] tracking-tight">
+                Upload Study Notes
               </h1>
             </div>
             <RoleBadge role={profile?.role} />
           </div>
 
-          {/* Success Notification */}
           {success && (
-            <div className="mb-6 p-4 rounded-[16px] bg-[#01AB31]/10 border border-[#01AB31]/20 flex items-center gap-2 text-xs font-semibold text-[#01AB31]">
+            <div
+              role="status"
+              className="mb-6 p-3.5 rounded-[6px] bg-[var(--accent-verified-bg)] border border-[var(--accent-verified)]/30 flex items-center gap-2 text-xs font-semibold text-[var(--accent-verified)]"
+            >
               <CheckCircle2 className="w-4 h-4 shrink-0" />
               <span>{success}</span>
             </div>
           )}
 
-          {/* Error Notification */}
           {error && (
-            <div className="mb-6 p-4 rounded-[16px] bg-[#FF3333]/10 border border-[#FF3333]/20 text-xs font-semibold text-[#FF3333]">
+            <div
+              role="alert"
+              className="mb-6 p-3.5 rounded-[6px] bg-[var(--accent-danger-bg)] border border-[var(--accent-danger)]/30 text-xs font-semibold text-[var(--accent-danger)]"
+            >
               {error}
             </div>
           )}
 
-          {/* Upload Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Title */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                Title <span className="text-[#FF3333]">*</span>
+              <label
+                htmlFor="upload-title"
+                className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+              >
+                Title <span className="text-[var(--accent-danger)]">*</span>
               </label>
               <input
+                id="upload-title"
                 type="text"
                 required
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Operating Systems: CPU Scheduling & Banker's Algorithm"
-                className="w-full bg-[#F0EEED] text-black text-sm rounded-full px-5 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
+                className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] placeholder:text-[var(--text-subtle)] text-sm rounded-[6px] px-4 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] font-medium"
               />
             </div>
 
-            {/* Subject and Semester */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                  Subject <span className="text-[#FF3333]">*</span>
+                <label
+                  htmlFor="upload-subject"
+                  className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+                >
+                  Subject <span className="text-[var(--accent-danger)]">*</span>
                 </label>
                 <select
+                  id="upload-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full px-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium cursor-pointer"
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] text-sm rounded-[6px] px-3.5 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] font-medium cursor-pointer"
                 >
                   {SUBJECTS.map((s) => (
                     <option key={s} value={s}>
@@ -245,13 +255,17 @@ export default function Upload() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                  Semester <span className="text-[#FF3333]">*</span>
+                <label
+                  htmlFor="upload-semester"
+                  className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+                >
+                  Semester <span className="text-[var(--accent-danger)]">*</span>
                 </label>
                 <select
+                  id="upload-semester"
                   value={semester}
                   onChange={(e) => setSemester(e.target.value)}
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full px-4 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium cursor-pointer"
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] text-sm rounded-[6px] px-3.5 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] font-medium cursor-pointer"
                 >
                   {SEMESTERS.map((sem) => (
                     <option key={sem} value={sem}>
@@ -262,36 +276,39 @@ export default function Upload() {
               </div>
             </div>
 
-            {/* Description */}
             <div>
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                Description & Topics Covered <span className="text-black/40 font-normal lowercase">(optional)</span>
+              <label
+                htmlFor="upload-description"
+                className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+              >
+                Description & Topics Covered{' '}
+                <span className="text-[var(--text-subtle)] font-normal lowercase">(optional)</span>
               </label>
               <textarea
+                id="upload-description"
                 rows={4}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Briefly describe what this note covers (e.g. Chapter 3 numericals, VTU solved exam questions, summary of formulas)..."
-                className="w-full bg-[#F0EEED] text-black text-sm rounded-[20px] p-4 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all resize-none font-normal"
+                placeholder="Briefly summarize covered chapters, solved past questions, or formula sheets..."
+                className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] placeholder:text-[var(--text-subtle)] text-sm rounded-[6px] p-3.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] resize-none"
               />
             </div>
 
-            {/* Source Type Selector (Pills) */}
-            <div className="pt-2">
-              <label className="block text-xs font-bold uppercase tracking-wider text-black mb-2">
-                Attachment Source <span className="text-[#FF3333]">*</span>
-              </label>
-              <div className="flex p-1 rounded-full bg-[#F0EEED] max-w-sm border border-black/5">
+            <div className="pt-1">
+              <span className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-2">
+                Attachment Source <span className="text-[var(--accent-danger)]">*</span>
+              </span>
+              <div className="flex p-1 rounded-[6px] bg-[var(--bg-surface)] max-w-sm border border-[var(--border-hairline)]">
                 <button
                   type="button"
                   onClick={() => {
                     setSourceType('file')
                     setError('')
                   }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-[4px] text-xs font-semibold transition-colors cursor-pointer ${
                     sourceType === 'file'
-                      ? 'bg-black text-white shadow-xs'
-                      : 'text-black/60 hover:text-black'
+                      ? 'bg-[var(--bg-inverse)] text-[var(--text-inverse)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-ink)]'
                   }`}
                 >
                   <FileText className="w-3.5 h-3.5" />
@@ -304,10 +321,10 @@ export default function Upload() {
                     setSourceType('link')
                     setError('')
                   }}
-                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-full text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-[4px] text-xs font-semibold transition-colors cursor-pointer ${
                     sourceType === 'link'
-                      ? 'bg-black text-white shadow-xs'
-                      : 'text-black/60 hover:text-black'
+                      ? 'bg-[var(--bg-inverse)] text-[var(--text-inverse)]'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text-ink)]'
                   }`}
                 >
                   <LinkIcon className="w-3.5 h-3.5" />
@@ -316,12 +333,11 @@ export default function Upload() {
               </div>
             </div>
 
-            {/* File Dropzone */}
             {sourceType === 'file' ? (
-              <div className="bg-[#F0EEED] rounded-[20px] p-6 text-center border border-dashed border-black/20 hover:border-black transition-colors">
-                <UploadIcon className="w-8 h-8 text-black/40 mx-auto mb-2" />
+              <div className="bg-[var(--bg-surface)] rounded-[6px] p-6 text-center border border-dashed border-[var(--border-strong)] hover:bg-[var(--bg-surface-hover)]/45 transition-colors">
+                <UploadIcon className="w-7 h-7 text-[var(--text-subtle)] mx-auto mb-2" />
                 <label className="inline-block cursor-pointer">
-                  <span className="text-xs font-bold text-black underline">
+                  <span className="text-xs font-semibold text-[var(--text-ink)] underline">
                     Choose a PDF or Image
                   </span>
                   <input
@@ -331,14 +347,14 @@ export default function Upload() {
                     className="sr-only"
                   />
                 </label>
-                <p className="text-[11px] text-black/50 mt-1">
-                  PDF, PNG, JPG accepted (Maximum 10 MB)
+                <p className="font-mono-meta text-[11px] text-[var(--text-subtle)] mt-1">
+                  PDF, PNG, JPG accepted · Maximum 10 MB
                 </p>
                 {file && (
-                  <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white text-xs font-semibold text-black border border-black/10">
-                    <FileText className="w-3.5 h-3.5 text-[#01AB31]" />
+                  <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1 rounded-[4px] bg-[var(--bg-elevated)] text-xs font-medium text-[var(--text-ink)] border border-[var(--border-hairline)]">
+                    <FileText className="w-3.5 h-3.5 text-[var(--accent-verified)]" />
                     <span className="truncate max-w-[200px]">{file.name}</span>
-                    <span className="text-black/40 text-[10px]">
+                    <span className="font-mono-meta text-[var(--text-subtle)] text-[10px]">
                       ({(file.size / (1024 * 1024)).toFixed(2)} MB)
                     </span>
                   </div>
@@ -351,16 +367,15 @@ export default function Upload() {
                   value={externalLink}
                   onChange={(e) => setExternalLink(e.target.value)}
                   placeholder="https://drive.google.com/file/d/..."
-                  className="w-full bg-[#F0EEED] text-black text-sm rounded-full px-5 py-3 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white transition-all font-medium"
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] placeholder:text-[var(--text-subtle)] text-sm rounded-[6px] px-4 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] font-medium"
                 />
-                <p className="text-[11px] text-black/50 mt-1.5 pl-2">
-                  Paste a link to Google Drive, Dropbox, or OneDrive (Recommended for files &gt; 10 MB).
+                <p className="text-[11px] text-[var(--text-subtle)] mt-1.5">
+                  Paste a shared Google Drive, Dropbox, or OneDrive link for packs over 10 MB.
                 </p>
               </div>
             )}
 
-            {/* Submit Button */}
-            <div className="pt-4 flex items-center justify-end gap-3">
+            <div className="pt-3 flex items-center justify-end gap-3 border-t border-[var(--border-hairline)]">
               <Link to="/notes">
                 <Button variant="ghost" size="md">
                   Cancel
@@ -371,15 +386,14 @@ export default function Upload() {
                 variant="black"
                 size="lg"
                 disabled={loading}
-                className="font-bold shadow-none"
               >
                 <span>{loading ? 'Uploading & Publishing...' : 'Publish Study Notes'}</span>
-                <ArrowRight className="w-4 h-4 ml-1" />
+                <ArrowRight className="w-4 h-4" />
               </Button>
             </div>
           </form>
         </div>
-      </main>
+      </div>
     </div>
   )
 }

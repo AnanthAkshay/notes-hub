@@ -1,75 +1,153 @@
 @import "tailwindcss";
-@import "@fontsource-variable/inter";
-@import "@fontsource-variable/archivo";
-@import "@fontsource/archivo-black";
+@import "@fontsource-variable/fraunces/wght.css";
+@import "@fontsource/ibm-plex-sans/latin-400.css";
+@import "@fontsource/ibm-plex-sans/latin-500.css";
+@import "@fontsource/ibm-plex-sans/latin-600.css";
+@import "@fontsource/ibm-plex-sans/latin-700.css";
+@import "@fontsource/ibm-plex-mono/latin-400.css";
+@import "@fontsource/ibm-plex-mono/latin-500.css";
+@import "@fontsource/ibm-plex-mono/latin-600.css";
+
+:root {
+  --bg-canvas: #F5F2EB;
+  --bg-elevated: #FAF8F3;
+  --bg-surface: #EAE5DA;
+  --bg-surface-hover: #DFD9CB;
+  --bg-inverse: #181715;
+  --text-inverse: #F5F2EB;
+  --text-ink: #181715;
+  --text-muted: #524E47;
+  --text-subtle: #68635A;
+  --border-hairline: rgba(24, 23, 21, 0.14);
+  --border-strong: rgba(24, 23, 21, 0.30);
+  --accent-primary: #1B4958;
+  --accent-verified: #156E3E;
+  --accent-verified-bg: rgba(21, 110, 62, 0.11);
+  --accent-danger: #B3261E;
+  --accent-danger-bg: rgba(179, 38, 30, 0.10);
+  --accent-amber: #8C4F08;
+  --accent-amber-bg: rgba(140, 79, 8, 0.12);
+
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+.dark {
+  --bg-canvas: #12110F;
+  --bg-elevated: #1A1916;
+  --bg-surface: #25231F;
+  --bg-surface-hover: #302D27;
+  --bg-inverse: #EFECE4;
+  --text-inverse: #141311;
+  --text-ink: #EFECE4;
+  --text-muted: #B6B0A4;
+  --text-subtle: #968F82;
+  --border-hairline: rgba(239, 236, 228, 0.14);
+  --border-strong: rgba(239, 236, 228, 0.30);
+  --accent-primary: #6CB2C7;
+  --accent-verified: #4ADE80;
+  --accent-verified-bg: rgba(74, 222, 128, 0.13);
+  --accent-danger: #F87171;
+  --accent-danger-bg: rgba(248, 113, 113, 0.13);
+  --accent-amber: #FBBF24;
+  --accent-amber-bg: rgba(251, 191, 36, 0.13);
+}
 
 @layer base {
-  :root {
-    --font-display: 'Archivo Black', 'Archivo Variable', Archivo, sans-serif;
-    --font-body: 'Inter Variable', Inter, -apple-system, BlinkMacSystemFont, sans-serif;
+  * {
+    border-color: var(--border-hairline);
   }
 
-  * {
-    border-color: rgba(0, 0, 0, 0.1);
+  html {
+    scroll-behavior: smooth;
+    background-color: var(--bg-canvas);
+    color: var(--text-ink);
   }
 
   body {
     margin: 0;
     font-family: var(--font-body);
-    background-color: #FFFFFF;
-    color: #111111;
+    background-color: var(--bg-canvas);
+    color: var(--text-ink);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     min-height: 100vh;
+    transition: background-color 180ms ease, color 180ms ease;
   }
 
   ::selection {
-    background-color: #000000;
-    color: #FFFFFF;
+    background-color: var(--bg-inverse);
+    color: var(--text-inverse);
   }
 
   :focus-visible {
-    outline: 2px solid #000000;
+    outline: 2px solid var(--accent-primary);
     outline-offset: 2px;
   }
 }
 
 .font-display {
   font-family: var(--font-display);
-  font-weight: 900;
-  text-transform: uppercase;
-  letter-spacing: -0.03em;
-  line-height: 0.95;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  line-height: 1.08;
 }
 
 .font-body {
   font-family: var(--font-body);
 }
 
-/* Continuous Marquee Animation */
-@keyframes marquee-scroll {
-  0% {
-    transform: translateX(0);
+.font-mono-meta {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Restrained paper shimmer skeleton (compositor-only opacity pulse) */
+@keyframes archival-pulse {
+  0%, 100% {
+    opacity: 0.6;
   }
-  100% {
-    transform: translateX(-50%);
+  50% {
+    opacity: 1;
   }
 }
 
-.animate-marquee {
-  display: flex;
-  width: max-content;
-  animation: marquee-scroll 28s linear infinite;
-}
-
-.animate-marquee:hover {
-  animation-play-state: paused;
+.animate-archival-pulse {
+  animation: archival-pulse 1.5s ease-in-out infinite;
+  will-change: opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
+  html {
+    scroll-behavior: auto;
+  }
+  .animate-archival-pulse {
     animation: none;
-    width: 100%;
-    overflow-x: auto;
+  }
+}
+
+/* Print Stylesheet: clean black-on-white academic handout layout */
+@media print {
+  [data-no-print] {
+    display: none !important;
+  }
+
+  html,
+  body,
+  .dark {
+    background: #ffffff !important;
+    color: #000000 !important;
+  }
+
+  a[href^="http"]::after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+    color: #333333;
+  }
+
+  * {
+    box-shadow: none !important;
+    border-color: #cccccc !important;
   }
 }

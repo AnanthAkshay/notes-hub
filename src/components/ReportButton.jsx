@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { Flag, X, AlertTriangle } from 'lucide-react'
 import { supabase } from '../lib/supabaseClient'
@@ -16,7 +16,15 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm
   const [submitting, setSubmitting] = useState(false)
   const [showLoginPrompt, setShowLoginPrompt] = useState(false)
 
-  // 1. Guard: The author cannot report their own note
+  useEffect(() => {
+    if (!isOpen) return undefined
+    const handleKey = (e) => {
+      if (e.key === 'Escape' && !submitting) setIsOpen(false)
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [isOpen, submitting])
+
   if (user && user.id === uploadedBy) {
     return null
   }
@@ -64,25 +72,28 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm
   }
 
   return (
-    <div className="relative inline-block" onClick={(e) => e.stopPropagation()}>
+    <div
+      className="relative inline-block"
+      onClick={(e) => e.stopPropagation()}
+      data-no-print
+    >
       <Button
         variant="ghost"
         size={size}
         onClick={handleOpen}
         title="Report issue with this note"
-        className="text-black/60 hover:text-black hover:bg-[#F0EEED]"
+        className="text-[var(--text-muted)] hover:text-[var(--text-ink)]"
       >
         <Flag className="w-3.5 h-3.5" />
         <span>Report</span>
       </Button>
 
-      {/* Login Prompt Tooltip */}
       {showLoginPrompt && (
-        <div className="absolute bottom-full left-0 mb-2 z-50 bg-black text-white text-xs px-3 py-1.5 rounded-full shadow-lg whitespace-nowrap animate-in fade-in zoom-in-95 duration-100 flex items-center gap-1.5">
+        <div className="absolute bottom-full left-0 mb-2 z-50 bg-[var(--bg-inverse)] text-[var(--text-inverse)] text-xs px-3 py-1.5 rounded-[6px] border border-[var(--border-strong)] whitespace-nowrap flex items-center gap-2">
           <span>Sign in to report</span>
           <Link
             to="/login"
-            className="underline font-bold text-[#FFC633]"
+            className="underline font-semibold text-[var(--accent-amber)]"
             onClick={(e) => e.stopPropagation()}
           >
             Log In
@@ -90,52 +101,62 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm
         </div>
       )}
 
-      {/* Modal Backdrop and Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="report-modal-title"
+        >
           <div
-            className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
+            className="fixed inset-0 bg-black/55 transition-opacity"
             onClick={() => !submitting && setIsOpen(false)}
           />
 
           <div
-            className="relative bg-white rounded-[24px] shadow-2xl max-w-md w-full p-6 sm:p-8 z-10 animate-in fade-in zoom-in-95 duration-150 border border-black/10 text-left"
+            className="relative bg-[var(--bg-elevated)] rounded-[8px] max-w-md w-full p-6 z-10 border border-[var(--border-strong)] text-left"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between pb-4 border-b border-black/10">
+            <div className="flex items-center justify-between pb-3.5 border-b border-[var(--border-hairline)]">
               <div className="flex items-center gap-2">
-                <span className="p-2 rounded-full bg-[#FF3333]/10 text-[#FF3333]">
+                <span className="p-2 rounded-[4px] bg-[var(--accent-danger-bg)] text-[var(--accent-danger)]">
                   <AlertTriangle className="w-4 h-4" />
                 </span>
-                <h3 className="font-display text-lg text-black uppercase tracking-tight">
-                  Report Note
+                <h3
+                  id="report-modal-title"
+                  className="font-display text-lg text-[var(--text-ink)]"
+                >
+                  Report Study Note
                 </h3>
               </div>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
                 disabled={submitting}
-                className="p-1.5 rounded-full text-black/50 hover:text-black hover:bg-[#F0EEED] transition-colors"
+                aria-label="Close report dialog"
+                className="p-1.5 rounded-[4px] text-[var(--text-muted)] hover:text-[var(--text-ink)] hover:bg-[var(--bg-surface)] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-black/60 mt-3 line-clamp-1 font-medium">
+            <p className="text-xs text-[var(--text-muted)] mt-3 line-clamp-1 font-medium">
               Note: &ldquo;{noteTitle}&rdquo;
             </p>
 
-            {/* Form */}
             <form onSubmit={handleSubmit} className="mt-4 space-y-4">
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                  Reason for report
+                <label
+                  htmlFor="report-reason"
+                  className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+                >
+                  Reason
                 </label>
                 <select
+                  id="report-reason"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  className="w-full bg-[#F0EEED] text-black text-xs font-semibold rounded-full px-4 py-2.5 border border-black/10 focus:outline-none focus:border-black cursor-pointer"
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] text-xs font-medium rounded-[6px] px-3 py-2.5 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] cursor-pointer"
                 >
                   <option value="incorrect">Incorrect Information / Calculation Errors</option>
                   <option value="incomplete">Incomplete Notes / Missing Pages</option>
@@ -146,25 +167,27 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm
               </div>
 
               <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-black mb-1.5">
-                  Additional Details <span className="font-normal text-black/40 lowercase">(optional, max 300)</span>
+                <label
+                  htmlFor="report-details"
+                  className="block text-xs font-semibold uppercase tracking-wider text-[var(--text-ink)] mb-1.5"
+                >
+                  Details <span className="font-normal text-[var(--text-subtle)] lowercase">(optional, max 300)</span>
                 </label>
                 <textarea
+                  id="report-details"
                   value={details}
-                  onChange={(e) => setDetails(e.target.value)}
-                  maxLength={300}
+                  onChange={(e) => setDetails(e.target.value.slice(0, 300))}
                   rows={3}
-                  placeholder="Specify page numbers or explain the inaccuracy..."
-                  className="w-full bg-[#F0EEED] text-black text-xs rounded-2xl p-3.5 border border-transparent focus:outline-none focus:border-black/20 focus:bg-white resize-none transition-all"
+                  placeholder="Describe the error or missing page..."
+                  className="w-full bg-[var(--bg-surface)] text-[var(--text-ink)] text-xs rounded-[6px] p-3 border border-[var(--border-hairline)] focus:outline-none focus:border-[var(--border-strong)] focus:bg-[var(--bg-elevated)] resize-none"
                 />
-                <div className="text-[10px] text-black/40 text-right mt-1">
+                <div className="text-right font-mono-meta text-[10px] text-[var(--text-subtle)] mt-1">
                   {details.length}/300
                 </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">
                 <Button
-                  type="button"
                   variant="outline"
                   size="sm"
                   onClick={() => setIsOpen(false)}
@@ -174,7 +197,7 @@ export default function ReportButton({ noteId, noteTitle, uploadedBy, size = 'sm
                 </Button>
                 <Button
                   type="submit"
-                  variant="black"
+                  variant="danger"
                   size="sm"
                   disabled={submitting}
                 >

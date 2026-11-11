@@ -21,21 +21,21 @@ export default class ErrorBoundary extends Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-md border border-gray-200 max-w-md w-full p-8 text-center">
-            <div className="w-14 h-14 mx-auto mb-4 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center text-2xl font-bold">
-              ⚠
+        <div className="min-h-screen bg-[var(--bg-canvas)] flex items-center justify-center p-4">
+          <div className="bg-[var(--bg-elevated)] rounded-[8px] border border-[var(--border-strong)] max-w-md w-full p-8 text-center">
+            <div className="w-11 h-11 mx-auto mb-4 rounded-[6px] bg-[var(--accent-danger-bg)] text-[var(--accent-danger)] border border-[var(--accent-danger)]/30 flex items-center justify-center font-mono-meta text-lg font-bold">
+              !
             </div>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">
+            <h1 className="font-display text-2xl text-[var(--text-ink)] mb-2">
               Something went wrong
             </h1>
-            <p className="text-sm text-gray-600 mb-6 leading-relaxed">
-              An unexpected error occurred while rendering the page. Don&apos;t worry, your data and notes are safe.
+            <p className="text-sm text-[var(--text-muted)] mb-6 leading-relaxed">
+              An unexpected error occurred while rendering this page. Your saved notes and session remain intact.
             </p>
             <button
               type="button"
               onClick={this.handleReload}
-              className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm rounded-xl transition-colors shadow-xs"
+              className="w-full py-2.5 px-4 bg-[var(--bg-inverse)] hover:opacity-90 text-[var(--text-inverse)] font-semibold text-sm rounded-[6px] transition-opacity cursor-pointer"
             >
               Return to Notes Hub Home
             </button>
@@ -47,4 +47,3 @@ export default class ErrorBoundary extends Component {
     return this.props.children
   }
 }
-

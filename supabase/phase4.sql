@@ -112,7 +112,7 @@ comment on function public.update_note_score_on_vote() is
 -- - Blocks students/teachers from voting on notes they uploaded
 -- - Toggles vote off if clicked same direction
 -- - Switches vote if clicked opposite direction (+1 <-> -1)
--- - Returns updated score and user_vote (1, -1, or 0)
+-- - Returns updated score and my_vote (1, -1, or 0)
 -- ------------------------------------------------------------------------------
 create or replace function public.cast_vote(
   p_note_id uuid,
@@ -140,10 +140,11 @@ begin
     raise exception 'Invalid vote value: must be 1 (upvote) or -1 (downvote).';
   end if;
 
-  -- 3. Check note existence & block author self-voting
+  -- 3. Lock note row, check note existence & block author self-voting
   select uploaded_by into v_note_uploader
   from public.notes
-  where id = p_note_id;
+  where id = p_note_id
+  for update;
 
   if not found then
     raise exception 'Target note does not exist (id: %)', p_note_id;
@@ -184,10 +185,13 @@ begin
 
   return jsonb_build_object(
     'score', coalesce(v_new_score, 0),
-    'user_vote', v_final_vote
+    'my_vote', v_final_vote
   );
 end;
 $$;
+
+revoke all on function public.cast_vote(uuid, smallint) from public;
+grant execute on function public.cast_vote(uuid, smallint) to authenticated;
 
 comment on function public.cast_vote(uuid, smallint) is
   'Safely casts, switches, or toggles upvotes/downvotes, returning updated score';

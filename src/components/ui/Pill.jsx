@@ -6,22 +6,28 @@ export function Pill({
   ...props
 }) {
   const base =
-    'inline-flex items-center rounded-full font-medium transition-colors select-none'
+    'inline-flex items-center rounded-[4px] font-medium transition-colors select-none'
 
   const variants = {
-    default: 'bg-[#F0EEED] text-black/80 border border-black/5',
-    black: 'bg-black text-white border border-transparent',
-    white: 'bg-white text-black border border-black/10',
-    verified: 'bg-[#01AB31]/10 text-[#01AB31] border border-[#01AB31]/20 font-semibold',
-    danger: 'bg-[#FF3333]/10 text-[#FF3333] border border-[#FF3333]/20 font-semibold',
-    yellow: 'bg-[#FFC633]/20 text-neutral-900 border border-[#FFC633]/40 font-semibold',
+    default:
+      'bg-[var(--bg-surface)] text-[var(--text-muted)] border border-[var(--border-hairline)]',
+    black:
+      'bg-[var(--bg-inverse)] text-[var(--text-inverse)] border border-transparent',
+    white:
+      'bg-[var(--bg-elevated)] text-[var(--text-ink)] border border-[var(--border-hairline)]',
+    verified:
+      'bg-[var(--accent-verified-bg)] text-[var(--accent-verified)] border border-[var(--accent-verified)]/30 font-semibold',
+    danger:
+      'bg-[var(--accent-danger-bg)] text-[var(--accent-danger)] border border-[var(--accent-danger)]/30 font-semibold',
+    yellow:
+      'bg-[var(--accent-amber-bg)] text-[var(--accent-amber)] border border-[var(--accent-amber)]/30 font-semibold',
   }
 
   const sizes = {
     xs: 'text-[10px] px-2 py-0.5 gap-1',
     sm: 'text-xs px-2.5 py-1 gap-1',
-    md: 'text-xs px-3 py-1.5 gap-1.5',
-    lg: 'text-sm px-4 py-2 gap-2',
+    md: 'text-xs px-3 py-1 gap-1.5',
+    lg: 'text-sm px-3.5 py-1.5 gap-2',
   }
 
   return (
@@ -46,19 +52,21 @@ export function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`inline-flex items-center rounded-full transition-all duration-150 cursor-pointer select-none font-medium ${
-        size === 'sm' ? 'text-xs px-3 py-1.5' : 'text-sm px-4 py-2'
+      className={`inline-flex items-center rounded-[4px] transition-colors duration-150 cursor-pointer select-none font-medium active:scale-[0.98] ${
+        size === 'sm' ? 'text-xs px-2.5 py-1.5' : 'text-sm px-3.5 py-1.5'
       } ${
         active
-          ? 'bg-black text-white border border-black shadow-sm'
-          : 'bg-[#F0EEED] text-black/70 hover:bg-[#E8E5E4] hover:text-black border border-transparent'
+          ? 'bg-[var(--bg-inverse)] text-[var(--text-inverse)] border border-[var(--bg-inverse)]'
+          : 'bg-[var(--bg-surface)] text-[var(--text-muted)] hover:bg-[var(--bg-surface-hover)] hover:text-[var(--text-ink)] border border-[var(--border-hairline)]'
       } ${className}`}
     >
       <span>{label}</span>
       {count !== undefined && (
         <span
-          className={`ml-1.5 text-[11px] px-1.5 py-0.2 rounded-full ${
-            active ? 'bg-white/20 text-white' : 'bg-black/10 text-black/60'
+          className={`ml-1.5 text-[11px] font-mono-meta px-1 py-0.2 rounded-[2px] ${
+            active
+              ? 'bg-[var(--bg-elevated)]/20 text-[var(--text-inverse)]'
+              : 'bg-[var(--bg-elevated)] text-[var(--text-subtle)]'
           }`}
         >
           {count}

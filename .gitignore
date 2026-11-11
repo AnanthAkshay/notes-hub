@@ -17,6 +17,11 @@ dist-ssr
 .env.*
 !.env.example
 
+# Private student roster data and generated SQL
+data/
+students.csv
+supabase/roster*.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
