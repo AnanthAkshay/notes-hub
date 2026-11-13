@@ -30,6 +30,13 @@ export const SUBJECTS = [
   'Cloud Computing',
   'Cybersecurity & Cryptography',
   'Environmental Studies',
+  'Design and Analysis of Algorithms',
+  'Java Programming',
+  'Mathematics',
+  'Microcontroller',
+  'R Programming',
+  'Engineering Economics',
+  'React',
 ]
 
 export const SORT_OPTIONS = [
@@ -68,6 +75,13 @@ export const SUBJECT_METADATA = {
   'Cloud Computing': { initials: 'CC', tint: '#EFF7FC', accent: '#075985', code: 'CS702' },
   'Cybersecurity & Cryptography': { initials: 'CYBER', tint: '#FFF0F3', accent: '#9F1239', code: 'CS703' },
   'Environmental Studies': { initials: 'EVS', tint: '#F0FAF2', accent: '#14532D', code: 'HS101' },
+  'Design and Analysis of Algorithms': { initials: 'DAA', tint: '#FFF2EB', accent: '#C2410C', code: 'CS403' },
+  'Java Programming': { initials: 'JAVA', tint: '#FEF3C7', accent: '#B45309', code: 'CS404' },
+  'Mathematics': { initials: 'MATH', tint: '#EFF6FF', accent: '#1D4ED8', code: 'MA401' },
+  'Microcontroller': { initials: 'MC', tint: '#F3E8FF', accent: '#7E22CE', code: 'CS405' },
+  'R Programming': { initials: 'R', tint: '#ECFDF5', accent: '#047857', code: 'CS406' },
+  'Engineering Economics': { initials: 'ECO', tint: '#FDF4FF', accent: '#A21CAF', code: 'EC591' },
+  'React': { initials: 'REACT', tint: '#F0FDF4', accent: '#0F766E', code: 'CS594' },
 }
 
 export function getSubjectMeta(subject) {

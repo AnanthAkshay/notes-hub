@@ -22,6 +22,14 @@ data/
 students.csv
 supabase/roster*.sql
 
+# Bulk import artifacts & credentials
+scripts/.env.import
+scripts/.env.import.*
+scripts/.import-manifest.json
+scripts/import-config.json
+scripts/import-plan.json
+scripts/converted/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
